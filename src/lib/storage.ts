@@ -39,8 +39,8 @@ export async function readHistory(): Promise<HistoryRecord[]> {
       const data: HistoryData = await res.json();
       return data.records;
     } catch (e: any) {
-      console.error("[storage]", e.message);
-      throw e; // 抛出去让 API route 捕获并返回给前端
+      console.error("[storage] 读取失败:", e.message);
+      return [];
     }
   }
 

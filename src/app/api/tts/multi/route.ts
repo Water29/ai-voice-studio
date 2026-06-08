@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     const results = await generateMultiSpeech(body.text, body.voiceIds);
 
     // 更新历史记录（如果提供了 recordId + translations）
+    let histSaved = false;
+    let histError = "";
     if (body.recordId && body.translations && body.sourceText) {
       try {
         const { addRecord } = await import("@/lib/storage");
@@ -35,7 +37,6 @@ export async function POST(request: Request) {
           durationMs: r.durationMs, _error: r._error || undefined,
           forText: body.text,
         }));
-        // 直接用前端传来的数据构造完整记录（不依赖 Blob 读取）
         await addRecord({
           id: body.recordId,
           sourceText: body.sourceText,
@@ -47,10 +48,15 @@ export async function POST(request: Request) {
           durationMs: null, costUsd: 0,
           createdAt: body.createdAt || new Date().toISOString(),
         } as any);
-      } catch { /* ignore */ }
+        histSaved = true;
+      } catch (e: any) {
+        histError = e.message;
+      }
+    } else {
+      histError = `缺少数据: recordId=${!!body.recordId} translations=${!!body.translations} sourceText=${!!body.sourceText}`;
     }
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, _hist: { saved: histSaved, error: histError } });
   } catch (error) {
     console.error("多音色生成错误:", error);
     const message = error instanceof Error ? error.message : "语音生成异常";

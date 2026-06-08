@@ -71,10 +71,11 @@ export async function POST(request: Request) {
     });
 
     // 自动保存历史
+    const recordId = `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
     try {
       const { addRecord } = await import("@/lib/storage");
       await addRecord({
-        id: `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`,
+        id: recordId,
         sourceText: body.text,
         translatedText: translations[0]?.translatedText || "",
         translationStyle: translations[0]?.style || "",
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
       } as any);
     } catch { /* 历史保存失败不影响翻译 */ }
 
-    return NextResponse.json({ translations, analyzedStyle: bestStyle });
+    return NextResponse.json({ translations, analyzedStyle: bestStyle, recordId });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "未知错误";
     console.error("多版本翻译错误:", msg);

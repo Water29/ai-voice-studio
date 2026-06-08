@@ -46,8 +46,6 @@ export default function Home() {
   const handleTranslate = useCallback(async (text: string) => {
     setSourceText(text); setPhase("translating"); setError(null);
     setTranslations([]); setVoiceMap(new Map()); setVoiceGenTab(null);
-    const rid = `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
-    setRecordId(rid);
 
     try {
       const res = await fetch("/api/translate/multi", {
@@ -59,6 +57,8 @@ export default function Home() {
         const valid = data.translations.filter((t: any) => t.translatedText);
         if (valid.length === 0) { setError("AI 未能生成有效翻译，请重试"); setPhase("idle"); return; }
         setTranslations(valid); setActiveTransTab(0); setPhase("translated");
+        // 使用服务端返回的 recordId
+        if (data.recordId) setRecordId(data.recordId);
 
         // 历史已在 API 中自动保存
         historyStore.refresh();

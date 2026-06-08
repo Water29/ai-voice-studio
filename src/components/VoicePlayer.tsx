@@ -1,9 +1,5 @@
 "use client";
 
-// ============================================
-// VoicePlayer — 音频播放器组件
-// ============================================
-
 import { useRef, useState, useEffect, useCallback } from "react";
 
 interface VoicePlayerProps {
@@ -13,11 +9,9 @@ interface VoicePlayerProps {
   onDownload?: () => void;
 }
 
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+function fmt(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, "0")}`;
 }
 
 export function VoicePlayer({
@@ -26,70 +20,82 @@ export function VoicePlayer({
   durationMs,
   onDownload,
 }: VoicePlayerProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
+  const ref = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [dur, setDur] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setAudioDuration(0);
+    setPlaying(false);
+    setCurrent(0);
+    setDur(0);
     setError(null);
   }, [audioUrl]);
 
-  const togglePlay = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play().catch((e) => setError(`播放失败: ${e.message}`));
-    }
-  }, [isPlaying]);
+  const toggle = useCallback(() => {
+    const a = ref.current;
+    if (!a) return;
+    if (playing) a.pause();
+    else a.play().catch((e) => setError(`播放失败: ${e.message}`));
+  }, [playing]);
 
-  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  }, []);
+  const seek = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const t = Number(e.target.value);
+      if (ref.current) {
+        ref.current.currentTime = t;
+        setCurrent(t);
+      }
+    },
+    []
+  );
 
   if (!audioUrl) return null;
 
-  const displayDuration = audioDuration || (durationMs ? durationMs / 1000 : 0);
-  const progress = displayDuration > 0 ? currentTime / displayDuration : 0;
+  const displayDur = dur || (durationMs ? durationMs / 1000 : 0);
+  const pct = displayDur > 0 ? current / displayDur : 0;
 
   return (
-    <div className="space-y-2.5">
-      {/* 顶部信息栏 */}
+    <div className="space-y-3">
+      {/* 顶部信息 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-600">
+          <span className="text-xs font-medium text-gray-500">
             🎤 {voiceName || "语音"}
           </span>
           <span className="text-[11px] text-gray-400">
-            {displayDuration > 0 && formatDuration(displayDuration * 1000)}
+            {displayDur > 0 && fmt(displayDur * 1000)}
           </span>
         </div>
+        {/* 下载按钮 — 绿色调 */}
         <button
           onClick={onDownload}
-          className="rounded-lg border border-purple-200 px-2.5 py-1 text-[11px] text-purple-500 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 hover:border-purple-300 transition-all"
+          className="rounded-lg border border-emerald-200 px-2.5 py-1 text-[11px] text-emerald-500 hover:bg-emerald-50 transition-colors"
         >
           ⬇ 下载 MP3
         </button>
       </div>
 
-      {/* 播放控制条 */}
-      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-purple-50/50 to-violet-50/50 border border-purple-100/60 px-3 py-2.5">
-        {/* 播放按钮 */}
+      {/* 播放条 */}
+      <div
+        className="flex items-center gap-3 rounded-xl border border-purple-50 px-3 py-2.5"
+        style={{
+          background:
+            "linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)",
+        }}
+      >
+        {/* 播放按钮 — 柔和紫 */}
         <button
-          onClick={togglePlay}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md shadow-purple-200 transition-all hover:scale-105"
+          onClick={toggle}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-all hover:scale-105"
+          style={{
+            background:
+              "linear-gradient(135deg, #b4a5e8 0%, #a0aedd 100%)",
+            boxShadow: "0 2px 6px rgba(160,174,221,0.3)",
+          }}
         >
-          {isPlaying ? (
+          {playing ? (
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="4" width="4" height="16" rx="1" />
               <rect x="14" y="4" width="4" height="16" rx="1" />
@@ -101,52 +107,47 @@ export function VoicePlayer({
           )}
         </button>
 
-        {/* 进度条 */}
         <div className="flex-1">
           <input
             type="range"
             min={0}
-            max={displayDuration || 0}
+            max={displayDur || 0}
             step={0.1}
-            value={currentTime}
-            onChange={handleSeek}
+            value={current}
+            onChange={seek}
             className="w-full h-1.5 rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:h-3.5
-              [&::-webkit-slider-thumb]:w-3.5
+              [&::-webkit-slider-thumb]:h-3
+              [&::-webkit-slider-thumb]:w-3
               [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:shadow-md
+              [&::-webkit-slider-thumb]:shadow-sm
               [&::-webkit-slider-thumb]:cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #a855f7 ${progress * 100}%, #e9d5ff ${progress * 100}%)`,
+              background: `linear-gradient(to right, #c4b5fd ${pct * 100}%, #ede9fe ${pct * 100}%)`,
             }}
           />
         </div>
 
-        {/* 时间 */}
-        <span className="text-[11px] text-gray-400 min-w-[72px] text-right tabular-nums">
-          {formatDuration(currentTime * 1000)} /{" "}
-          {displayDuration > 0
-            ? formatDuration(displayDuration * 1000)
-            : "--:--"}
+        <span className="text-[11px] text-gray-300 min-w-[68px] text-right tabular-nums">
+          {fmt(current * 1000)}/{displayDur > 0 ? fmt(displayDur * 1000) : "--:--"}
         </span>
       </div>
 
       <audio
-        ref={audioRef}
+        ref={ref}
         src={audioUrl}
         onTimeUpdate={() => {
-          if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+          if (ref.current) setCurrent(ref.current.currentTime);
         }}
         onLoadedMetadata={() => {
-          if (audioRef.current) setAudioDuration(audioRef.current.duration);
+          if (ref.current) setDur(ref.current.duration);
         }}
         onEnded={() => {
-          setIsPlaying(false);
-          setCurrentTime(0);
+          setPlaying(false);
+          setCurrent(0);
         }}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
         preload="auto"
       />
 

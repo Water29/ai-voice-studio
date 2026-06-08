@@ -24,10 +24,18 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="light">
       <body
-        className={`${inter.className} min-h-screen bg-gradient-to-br from-purple-50/40 via-white to-pink-50/30 text-gray-800 antialiased`}
+        className={`${inter.className} min-h-screen antialiased`}
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 60% at 50% -10%, #ede9fe 0%, transparent 50%),
+            radial-gradient(ellipse 60% 50% at 90% 80%, #fce7f3 0%, transparent 50%),
+            radial-gradient(ellipse 50% 40% at 10% 40%, #e0e7ff 0%, transparent 50%),
+            linear-gradient(180deg, #f5f3ff 0%, #fff5f9 30%, #faf5ff 60%, #f5f3ff 100%)
+          `,
+          backgroundAttachment: "fixed",
+        }}
       >
-        {/* 顶部装饰条 */}
-        <div className="h-1 bg-gradient-to-r from-purple-500 via-violet-400 to-pink-500" />
+        <div className="h-0.5 bg-gradient-to-r from-purple-300 via-violet-200 to-pink-300" />
         {children}
       </body>
     </html>

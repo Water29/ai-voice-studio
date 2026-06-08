@@ -1,9 +1,5 @@
 "use client";
 
-// ============================================
-// 主页面 — AI Voice Studio
-// ============================================
-
 import { useState, useCallback, useEffect } from "react";
 import { ScriptInput } from "@/components/ScriptInput";
 import { TranslationResult } from "@/components/TranslationResult";
@@ -158,14 +154,20 @@ export default function Home() {
     workflowState === "translating" || workflowState === "generating";
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-3 py-3 sm:px-5 sm:py-4">
+    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       {/* ======== Header ======== */}
-      <header className="mb-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-purple-600 via-violet-500 to-pink-500 px-5 py-4 text-white shadow-lg shadow-purple-200/50">
+      <header
+        className="mb-6 flex items-center justify-between rounded-2xl px-5 py-4 text-white shadow-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, #b4a5e8 0%, #9baddb 30%, #a8c5e8 60%, #c9b8e8 100%)",
+        }}
+      >
         <div>
-          <h1 className="text-lg font-bold tracking-tight">
+          <h1 className="text-lg font-bold tracking-tight drop-shadow-sm">
             🎙️ AI Voice Studio
           </h1>
-          <p className="mt-0.5 text-xs text-white/70">
+          <p className="mt-0.5 text-xs text-white/65">
             DeepSeek 翻译 · ElevenLabs 配音 · 英文口播一键生成
           </p>
         </div>
@@ -179,74 +181,84 @@ export default function Home() {
         )}
       </header>
 
-      {/* ======== Main Content ======== */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* ---- Left ---- */}
-        <div className="space-y-3 lg:col-span-2">
-          {/* Step 1: 输入 */}
-          <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
+      {/* ======== Main ======== */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          {/* 输入卡片 */}
+          <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
             <ScriptInput
               onGenerate={handleGenerate}
               isGenerating={isProcessing}
             />
           </section>
 
-          {/* Step 2 & 3: 结果区 */}
-          <div className="min-h-[160px] space-y-3">
+          {/* 结果区域 */}
+          <div className="min-h-[140px] space-y-4">
+            {/* 翻译中 */}
             {workflowState === "translating" && (
-              <section className="rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100 p-4">
+              <div
+                className="rounded-xl border border-purple-100/40 p-4"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
+                }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
-                  <span className="text-sm text-purple-600 font-medium">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-400" />
+                  <span className="text-sm text-purple-400/80 font-medium">
                     DeepSeek 翻译中...
                   </span>
                 </div>
-              </section>
+              </div>
             )}
 
-            {workflowState === "generating" && translationResult && (
-              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
-                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                  英文翻译
-                </h2>
-                <TranslationResult
-                  translatedText={translationResult.translatedText}
-                  style={translationResult.style}
-                  costUsd={translationResult.costUsd}
-                />
-              </section>
-            )}
+            {/* 翻译结果 */}
+            {(workflowState === "generating" ||
+              workflowState === "done") &&
+              translationResult && (
+                <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
+                  <h2 className="mb-2 text-[11px] font-semibold text-purple-300 uppercase tracking-wider">
+                    英文翻译
+                  </h2>
+                  <TranslationResult
+                    translatedText={translationResult.translatedText}
+                    style={translationResult.style}
+                    costUsd={translationResult.costUsd}
+                    onRegenerate={
+                      workflowState === "done"
+                        ? () =>
+                            handleGenerate(
+                              sourceText,
+                              translationResult.style
+                            )
+                        : undefined
+                    }
+                  />
+                </section>
+              )}
 
+            {/* 语音生成中 */}
             {workflowState === "generating" && (
-              <section className="rounded-xl bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-100 p-4">
+              <div
+                className="rounded-xl border border-violet-100/40 p-4"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #f5f3ff 0%, #fdf2f8 100%)",
+                }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" />
-                  <span className="text-sm text-violet-600 font-medium">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-200 border-t-violet-400" />
+                  <span className="text-sm text-violet-400/80 font-medium">
                     ElevenLabs 语音生成中...
                   </span>
                 </div>
-              </section>
+              </div>
             )}
 
-            {translationResult && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
-                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                  英文翻译
-                </h2>
-                <TranslationResult
-                  translatedText={translationResult.translatedText}
-                  style={translationResult.style}
-                  costUsd={translationResult.costUsd}
-                  onRegenerate={() =>
-                    handleGenerate(sourceText, translationResult.style)
-                  }
-                />
-              </section>
-            )}
-
+            {/* 语音结果 */}
             {ttsResult && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
-                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
+              <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
+                <h2 className="mb-2 text-[11px] font-semibold text-purple-300 uppercase tracking-wider">
                   语音预览
                 </h2>
                 <VoicePlayer
@@ -258,19 +270,26 @@ export default function Home() {
               </section>
             )}
 
+            {/* 空闲 */}
             {workflowState === "idle" && (
-              <div className="rounded-xl border border-dashed border-purple-200/60 bg-gradient-to-b from-purple-50/30 to-pink-50/20 p-6 text-center">
-                <p className="text-sm text-purple-300">
-                  输入中文文案，选择风格，开始生成 ✨
+              <div
+                className="rounded-xl border border-dashed border-purple-200/40 p-8 text-center"
+                style={{
+                  background:
+                    "linear-gradient(180deg, #faf5ff 0%, #fdf2f8 100%)",
+                }}
+              >
+                <p className="text-sm text-purple-300/70">
+                  输入中文文案，选择翻译风格，开始生成 ✨
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* ---- Right: History ---- */}
+        {/* 历史 */}
         <aside className="lg:col-span-1">
-          <div className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4 lg:sticky lg:top-4">
+          <div className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5 lg:sticky lg:top-6">
             <HistoryPanel
               records={historyStore.records}
               isLoading={historyStore.isLoading}
@@ -282,15 +301,14 @@ export default function Home() {
         </aside>
       </div>
 
-      {/* ======== Footer ======== */}
-      <footer className="mt-6 pb-4 text-center">
-        <p className="text-xs text-gray-300">
+      <footer className="mt-8 pb-6 text-center">
+        <p className="text-xs text-purple-200/70">
           Powered by{" "}
           <a
             href="https://platform.deepseek.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-400 hover:text-purple-500 transition-colors"
+            className="text-purple-300 hover:text-purple-400 transition-colors"
           >
             DeepSeek
           </a>{" "}
@@ -299,7 +317,7 @@ export default function Home() {
             href="https://elevenlabs.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-400 hover:text-purple-500 transition-colors"
+            className="text-purple-300 hover:text-purple-400 transition-colors"
           >
             ElevenLabs
           </a>

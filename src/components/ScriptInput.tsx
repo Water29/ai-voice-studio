@@ -1,9 +1,5 @@
 "use client";
 
-// ============================================
-// ScriptInput — 中文口播文案输入区
-// ============================================
-
 import { useState } from "react";
 import type { TranslationStyle } from "@/types";
 
@@ -13,40 +9,46 @@ interface ScriptInputProps {
   disabled?: boolean;
 }
 
+/** 每个风格独立的柔和配色 */
 const STYLES: {
   value: TranslationStyle;
   label: string;
   desc: string;
-  gradient: string;
-  activeGradient: string;
+  color: string;        // 选中边框+文字色
+  bg: string;            // 选中背景
+  hoverBg: string;       // 悬停背景
 }[] = [
   {
     value: "tiktok",
     label: "TikTok 风格",
-    desc: "自然口语化，适合短视频",
-    gradient: "from-gray-50 to-gray-100",
-    activeGradient: "from-purple-500 to-violet-500",
+    desc: "自然口语，适合短视频",
+    color: "#9b8eca",
+    bg: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
+    hoverBg: "#f5f3ff",
   },
   {
     value: "professional",
     label: "专业商务",
     desc: "正式流畅，企业介绍",
-    gradient: "from-blue-50 to-sky-50",
-    activeGradient: "from-blue-500 to-sky-500",
+    color: "#8ba3c7",
+    bg: "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
+    hoverBg: "#eef2ff",
   },
   {
     value: "casual",
     label: "日常闲聊",
     desc: "轻松随意，生活类内容",
-    gradient: "from-emerald-50 to-teal-50",
-    activeGradient: "from-emerald-500 to-teal-500",
+    color: "#8cbaa0",
+    bg: "linear-gradient(135deg, #f0faf4 0%, #e6f5ed 100%)",
+    hoverBg: "#f0faf4",
   },
   {
     value: "sales",
     label: "美式促销",
     desc: "高能量，适合带货",
-    gradient: "from-orange-50 to-rose-50",
-    activeGradient: "from-orange-500 to-rose-500",
+    color: "#c99da8",
+    bg: "linear-gradient(135deg, #fef5f7 0%, #fde8ed 100%)",
+    hoverBg: "#fef5f7",
   },
 ];
 
@@ -59,27 +61,24 @@ export function ScriptInput({
   const [style, setStyle] = useState<TranslationStyle>("tiktok");
 
   const handleGenerate = () => {
-    if (text.trim() && !isGenerating) {
-      onGenerate(text.trim(), style);
-    }
+    if (text.trim() && !isGenerating) onGenerate(text.trim(), style);
   };
 
   const charCount = text.length;
   const maxChars = 5000;
 
   return (
-    <div className="space-y-3">
-      {/* 标题 */}
+    <div className="space-y-4">
       <div>
-        <h2 className="text-sm font-semibold text-gray-700">
+        <h2 className="text-sm font-semibold text-gray-500">
           中文口播文案
         </h2>
         <p className="mt-0.5 text-xs text-gray-400">
-          输入中文营销文案，AI 翻译成自然流畅的英文口播
+          输入中文营销文案，AI 将翻译成自然流畅的英文口播
         </p>
       </div>
 
-      {/* 输入区 */}
+      {/* 输入框 */}
       <div className="relative">
         <textarea
           value={text}
@@ -88,12 +87,13 @@ export function ScriptInput({
           rows={3}
           maxLength={maxChars}
           disabled={disabled}
-          className="w-full rounded-xl border border-purple-100 bg-gradient-to-b from-purple-50/30 to-white px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-all"
+          className="w-full rounded-xl border border-purple-100/60 bg-white px-4 py-2.5 text-sm text-gray-600 placeholder:text-gray-350 focus:border-purple-250 focus:outline-none focus:ring-2 focus:ring-purple-100/40 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-all"
+          style={{ boxShadow: "inset 0 1px 3px rgba(168,85,247,0.03)" }}
         />
         <div className="absolute bottom-2 right-3">
           <span
             className={`text-xs ${
-              charCount > maxChars * 0.9 ? "text-red-400" : "text-gray-300"
+              charCount > maxChars * 0.9 ? "text-red-400" : "text-gray-350"
             }`}
           >
             {charCount}/{maxChars}
@@ -101,7 +101,7 @@ export function ScriptInput({
         </div>
       </div>
 
-      {/* 风格选择 */}
+      {/* 风格选择 — 每个按钮不同颜色 */}
       <div>
         <p className="mb-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">
           翻译风格
@@ -112,17 +112,43 @@ export function ScriptInput({
               key={s.value}
               onClick={() => setStyle(s.value)}
               disabled={disabled}
-              className={`rounded-xl border px-2.5 py-2 text-left text-xs transition-all ${
+              className="rounded-xl border px-2.5 py-2 text-left text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50"
+              style={
                 style === s.value
-                  ? `bg-gradient-to-r ${s.activeGradient} border-transparent text-white shadow-md`
-                  : `bg-gradient-to-b ${s.gradient} border-gray-100 text-gray-500 hover:border-purple-200 hover:shadow-sm`
-              } disabled:cursor-not-allowed disabled:opacity-50`}
+                  ? {
+                      borderColor: s.color,
+                      background: s.bg,
+                      color: s.color,
+                      fontWeight: 600,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                    }
+                  : {
+                      borderColor: "#f3f4f6",
+                      background: "#fff",
+                      color: "#9ca3af",
+                      fontWeight: 500,
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (style !== s.value) {
+                  (e.target as HTMLElement).style.background = s.hoverBg;
+                  (e.target as HTMLElement).style.borderColor = s.color + "40";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (style !== s.value) {
+                  (e.target as HTMLElement).style.background = "#fff";
+                  (e.target as HTMLElement).style.borderColor = "#f3f4f6";
+                }
+              }}
             >
               <div className="font-semibold">{s.label}</div>
               <div
-                className={`mt-0.5 ${
-                  style === s.value ? "text-white/70" : "text-gray-400"
-                }`}
+                className="mt-0.5"
+                style={{
+                  color:
+                    style === s.value ? s.color + "99" : "#d1d5db",
+                }}
               >
                 {s.desc}
               </div>
@@ -131,11 +157,20 @@ export function ScriptInput({
         </div>
       </div>
 
-      {/* 生成按钮 */}
+      {/* 生成按钮 — 柔和紫 */}
       <button
         onClick={handleGenerate}
         disabled={!text.trim() || isGenerating || disabled}
-        className="w-full h-10 text-sm font-semibold rounded-xl bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500 text-white shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 hover:scale-[1.01] disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all"
+        className="w-full h-10 text-sm font-semibold rounded-xl text-white transition-all disabled:cursor-not-allowed"
+        style={{
+          background: !text.trim()
+            ? "linear-gradient(135deg, #d8cef0 0%, #c4c8e8 100%)"
+            : "linear-gradient(135deg, #b4a5e8 0%, #a0aedd 100%)",
+          boxShadow: text.trim()
+            ? "0 2px 10px rgba(160,174,221,0.3)"
+            : "none",
+          opacity: !text.trim() || isGenerating ? 0.5 : 1,
+        }}
       >
         {isGenerating ? (
           <span className="flex items-center justify-center gap-2">

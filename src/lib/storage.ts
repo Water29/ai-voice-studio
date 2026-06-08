@@ -26,32 +26,21 @@ export async function readHistory(): Promise<HistoryRecord[]> {
     try {
       const { list } = await import("@vercel/blob");
       const all = await list();
-      // 找到 history/data.json
       const hist = all.blobs.find((b: any) => b.pathname === "history/data.json");
-      if (!hist) {
-        console.warn(`[storage] 未找到 history/data.json，现有: ${all.blobs.map((b: any) => b.pathname).join(", ")}`);
-        return [];
-      }
-      // 私有 blob：token 放 query string
+      if (!hist) return [];
+      // url + Bearer Token (本地测试通过 ✅)
       const token = process.env.BLOB_READ_WRITE_TOKEN!;
-      const urlWithToken = `${hist.url}?token=${encodeURIComponent(token)}`;
-      const res = await fetch(urlWithToken);
-      // 如果 URL 参数方式不行，试试 x-api-key header
+      const res = await fetch(hist.url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) {
-        const res2 = await fetch(hist.url, {
-          headers: { "x-api-key": token },
-        });
-        if (res2.ok) {
-          const d: HistoryData = await res2.json();
-          return d.records;
-        }
-        return [];
+        throw new Error(`fetch ${hist.url}: ${res.status}`);
       }
       const data: HistoryData = await res.json();
       return data.records;
     } catch (e: any) {
-      console.error(`[storage] 异常: ${e.message}`);
-      return [];
+      console.error("[storage]", e.message);
+      throw e; // 抛出去让 API route 捕获并返回给前端
     }
   }
 

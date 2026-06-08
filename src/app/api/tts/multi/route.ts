@@ -26,26 +26,27 @@ export async function POST(request: Request) {
 
     const results = await generateMultiSpeech(body.text, body.voiceIds);
 
-    // 更新历史记录（如果提供了 recordId）
-    if (body.recordId) {
+    // 更新历史记录（如果提供了 recordId + translations）
+    if (body.recordId && body.translations && body.sourceText) {
       try {
-        const { getRecord, addRecord } = await import("@/lib/storage");
-        const existing = await getRecord(body.recordId);
-        if (existing) {
-          // 合并旧语音结果 + 新语音结果（不覆盖不同翻译文本的语音）
-          const oldResults = (existing as any).voiceResults || [];
-          // 移除同文本的旧结果
-          const keptResults = oldResults.filter((r: any) => r.forText !== body.text);
-          const newResults = results.map((r: any) => ({
-            voiceName: r.voiceName, audioUrl: r.audioUrl,
-            durationMs: r.durationMs, _error: r._error || undefined,
-            forText: body.text, // 标记该语音属于哪个翻译文本
-          }));
-          await addRecord({
-            ...existing,
-            voiceResults: [...keptResults, ...newResults],
-          } as any);
-        }
+        const { addRecord } = await import("@/lib/storage");
+        const newResults = results.map((r: any) => ({
+          voiceName: r.voiceName, audioUrl: r.audioUrl,
+          durationMs: r.durationMs, _error: r._error || undefined,
+          forText: body.text,
+        }));
+        // 直接用前端传来的数据构造完整记录（不依赖 Blob 读取）
+        await addRecord({
+          id: body.recordId,
+          sourceText: body.sourceText,
+          translatedText: body.translations[0]?.text || "",
+          translationStyle: body.translations[0]?.style || "",
+          translations: body.translations,
+          voiceResults: newResults,
+          audioUrl: null, voiceName: null, voiceId: null,
+          durationMs: null, costUsd: 0,
+          createdAt: body.createdAt || new Date().toISOString(),
+        } as any);
       } catch { /* ignore */ }
     }
 

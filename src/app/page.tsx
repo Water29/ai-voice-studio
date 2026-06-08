@@ -79,7 +79,11 @@ export default function Home() {
     try {
       const res = await fetch("/api/tts/multi", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trans.translatedText, voiceIds: ids, recordId }),
+        body: JSON.stringify({
+          text: trans.translatedText, voiceIds: ids, recordId,
+          sourceText, translations: translations.map(t => ({ text: t.translatedText, style: t.style, label: t.label })),
+          createdAt: new Date().toISOString(),
+        }),
       });
       const data = await res.json();
       if (res.ok && data.results) {

@@ -33,6 +33,9 @@ export default function Home() {
   const [ttsResult, setTTSResult] = useState<TTSResponse | null>(null);
   const [multiTtsResults, setMultiTtsResults] = useState<(TTSResponse & { _error?: string })[]>([]);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
+  const [voiceRecommendation, setVoiceRecommendation] = useState<{
+    voiceName: string; style: string; score: number; reason: string;
+  } | null>(null);
 
   useEffect(() => {
     voice.loadVoices();
@@ -73,6 +76,24 @@ export default function Home() {
           if (res.ok && data.results) setMultiTtsResults(data.results);
         } catch { /* 多音色生成失败不影响主流程 */ }
       }
+
+      // Phase2: AI 推荐音色
+      try {
+        const recRes = await fetch("/api/voices/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          setVoiceRecommendation({
+            voiceName: recData.recommended.name,
+            style: recData.style,
+            score: recData.matchScore,
+            reason: recData.description,
+          });
+        }
+      } catch { /* 推荐失败不影响主流程 */ }
 
       // Phase2: 计算成本
       const costs = calculateCosts(text.length, translateResult.translatedText.length);
@@ -172,6 +193,7 @@ export default function Home() {
               selectedId={voice.selectedVoice?.voiceId ?? null}
               results={multiTtsResults}
               isGenerating={isProc}
+              recommendation={voiceRecommendation}
               onSelect={(v) => voice.selectVoice(v)}
               onGenerateAll={async (ids) => {
                 if (!translationResult?.translatedText) return;

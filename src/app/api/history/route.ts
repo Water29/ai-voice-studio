@@ -15,6 +15,28 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
+    const debug = searchParams.get("debug");
+
+    // 诊断模式
+    if (debug) {
+      const diag: any = {
+        vercel: !!process.env.VERCEL,
+        hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
+        hasDeepSeek: !!process.env.DEEPSEEK_API_KEY,
+        hasElevenLabs: !!process.env.ELEVENLABS_API_KEY,
+      };
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          const { list } = await import("@vercel/blob");
+          const all = await list();
+          diag.totalBlobs = all.blobs.length;
+          diag.blobNames = all.blobs.map((b: any) => b.pathname);
+        } catch (e: any) {
+          diag.blobError = e.message;
+        }
+      }
+      return NextResponse.json(diag);
+    }
 
     const records = query
       ? await searchHistory(query)
@@ -22,9 +44,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ records });
   } catch (error) {
-    console.error("获取历史记录错误:", error);
+    const msg = error instanceof Error ? error.message : "未知";
+    console.error("获取历史记录错误:", msg);
     return NextResponse.json(
-      { error: "获取历史记录失败" },
+      { error: msg },
       { status: 500 }
     );
   }

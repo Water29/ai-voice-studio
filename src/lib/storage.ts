@@ -23,19 +23,23 @@ function hasBlob(): boolean {
 export async function readHistory(): Promise<HistoryRecord[]> {
   // Vercel + 有 Blob → 从 Blob 读
   if (onVercel() && hasBlob()) {
-    try {
-      const { list } = await import("@vercel/blob");
-      const { blobs } = await list({ prefix: BLOB_KEY });
-      if (blobs.length === 0) return [];
-      const res = await fetch(blobs[0].url, {
-        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-      });
-      const data: HistoryData = await res.json();
-      return data.records;
-    } catch (e) {
-      console.error("Blob 读取失败，返回空历史:", e);
+    const { list } = await import("@vercel/blob");
+    const { blobs } = await list({ prefix: BLOB_KEY });
+    if (blobs.length === 0) {
+      // 诊断：检查是否完全没有 blob
+      const all = await list();
+      console.warn(`[storage] 未找到 prefix=${BLOB_KEY}，共 ${all.blobs.length} 个 blob`);
       return [];
     }
+    const res = await fetch(blobs[0].url, {
+      headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+    });
+    if (!res.ok) {
+      console.error(`[storage] Blob fetch 失败: ${res.status} ${res.statusText}`);
+      return [];
+    }
+    const data: HistoryData = await res.json();
+    return data.records;
   }
 
   // Vercel + 无 Blob → 返回空（不尝试写本地文件）

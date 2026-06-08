@@ -35,6 +35,8 @@ export default function Home() {
   // 每个翻译 tab 独立的语音结果 + 生成状态
   const [voiceMap, setVoiceMap] = useState<Map<number, VoiceItem[]>>(new Map());
   const [voiceGenTab, setVoiceGenTab] = useState<number | null>(null);
+  // Phase3: 逐句高亮
+  const [activeSentenceIdx, setActiveSentenceIdx] = useState<number | null>(null);
 
   useEffect(() => { historyStore.loadHistory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,17 +109,16 @@ export default function Home() {
           const reasons = results.map(r => `${r.voiceName}: ${r._error?.split('message":"')[1]?.split('"')[0] || r._error}`).join("; ");
           setError(`所有音色生成失败: ${reasons}`);
         } else {
-          setVoiceMap(prev => { const m = new Map(prev); m.set(tabIndex, results); return m; });
           if (successCount < results.length) {
-            setError(`${successCount}/${results.length} 个音色生成成功，部分失败（可能是账户限制）`);
+            setError(`${successCount}/${results.length} 个音色成功，部分失败`);
           }
         }
+        // 始终保存到 voiceMap（含失败的）
+        setVoiceMap(prev => { const m = new Map(prev); m.set(tabIndex, results); return m; });
 
-        // 保存历史（同 recordId，更新语音信息）
+        // 保存历史（始终保存，含失败信息）
         try {
-          // 先删除旧记录
           await fetch(`/api/history/${recordId}`, { method: "DELETE" });
-          // 再保存完整记录
           await fetch("/api/history", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -143,12 +144,32 @@ export default function Home() {
   const handleReset = useCallback(() => {
     setPhase("idle"); setError(null); setSourceText("");
     setTranslations([]); setVoiceMap(new Map()); setVoiceGenTab(null);
-    setActiveTransTab(0);
+    setActiveTransTab(0); setActiveSentenceIdx(null);
   }, []);
 
   const activeTrans = translations[activeTransTab];
   const activeVoices = voiceMap.get(activeTransTab) || [];
   const isGeneratingForTab = voiceGenTab === activeTransTab;
+
+  // Phase3: 分句工具
+  const splitSentences = (text: string): string[] => {
+    if (!text) return [];
+    const parts = text.split(/(?<=[.!?])\s+/);
+    return parts.filter(s => s.trim().length > 0);
+  };
+  const sentences = activeTrans ? splitSentences(activeTrans.translatedText) : [];
+  const handleTimeUpdate = useCallback((time: number, dur: number) => {
+    if (sentences.length === 0 || dur === 0) { setActiveSentenceIdx(null); return; }
+    const words = sentences.map(s => s.split(/\s+/).length);
+    const totalWords = words.reduce((a, b) => a + b, 0);
+    let acc = 0;
+    for (let i = 0; i < sentences.length; i++) {
+      const segDur = (words[i] / totalWords) * dur;
+      if (time >= acc && time < acc + segDur) { setActiveSentenceIdx(i); return; }
+      acc += segDur;
+    }
+    setActiveSentenceIdx(null);
+  }, [sentences]);
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -189,7 +210,7 @@ export default function Home() {
                   const cols = [{ bg: "#f0eaf8", text: "#7b6aaa", border: "#b4a0d8" },{ bg: "#e8edf8", text: "#5b6e9a", border: "#98acd0" },{ bg: "#e8f5ee", text: "#5a8a6e", border: "#90c0a8" }][i];
                   const hasVoice = voiceMap.has(i);
                   return (
-                    <button key={i} onClick={() => setActiveTransTab(i)} className="rounded-lg border px-3 py-1.5 text-left text-xs transition-all flex-1"
+                    <button key={i} onClick={() => { setActiveTransTab(i); setActiveSentenceIdx(null); }} className="rounded-lg border px-3 py-1.5 text-left text-xs transition-all flex-1"
                       style={{ borderColor: i === activeTransTab ? cols.border : "#e5e7eb", background: i === activeTransTab ? cols.bg : "#fff", color: i === activeTransTab ? cols.text : "#9ca3af", fontWeight: i === activeTransTab ? 600 : 500 }}>
                       <div className="flex items-center gap-1">{t.label}{hasVoice && <span className="text-[10px]">🎤</span>}</div>
                       <div className="text-[10px] opacity-70 mt-0.5">{t.description}</div>
@@ -202,7 +223,19 @@ export default function Home() {
               {activeTrans && (
                 <>
                   <div className="rounded-xl border p-3" style={{ borderColor: "#d0c4e8", background: "linear-gradient(135deg, #faf5ff 0%, #fdf2f8 100%)" }}>
-                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{activeTrans.translatedText}</p>
+                    {/* Phase3: 逐句高亮文本 */}
+                    <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                      {sentences.length > 0 ? sentences.map((s, i) => (
+                        <span key={i}
+                          className={`transition-colors duration-200 ${
+                            i === activeSentenceIdx
+                              ? "bg-purple-200/70 text-purple-800 font-medium rounded px-1 -mx-1"
+                              : ""
+                          }`}>
+                          {s}{i < sentences.length - 1 ? " " : ""}
+                        </span>
+                      )) : activeTrans.translatedText}
+                    </div>
                     <button onClick={async () => { try { await navigator.clipboard.writeText(activeTrans.translatedText); } catch { } }}
                       className="mt-2 text-[10px] text-gray-400 hover:text-purple-500 transition-colors">复制</button>
                   </div>
@@ -242,6 +275,7 @@ export default function Home() {
                               </summary>
                               <div className="mt-1.5">
                                 <WaveformPlayer audioUrl={v.audioUrl} voiceName={v.voiceName}
+                                  onTimeUpdate={handleTimeUpdate}
                                   onDownload={() => { const a = document.createElement("a"); a.href = v.audioUrl; a.download = `voice-${v.voiceName}.mp3`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }} />
                               </div>
                             </details>

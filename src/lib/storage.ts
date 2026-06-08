@@ -32,8 +32,11 @@ export async function readHistory(): Promise<HistoryRecord[]> {
         console.warn(`[storage] 未找到 history/data.json，现有: ${all.blobs.map((b: any) => b.pathname).join(", ")}`);
         return [];
       }
-      // 用 downloadUrl 下载（私有 blob 的签名临时 URL）
-      const res = await fetch(hist.downloadUrl);
+      // 用 url + Token 认证下载（私有 blob）
+      const token = process.env.BLOB_READ_WRITE_TOKEN!;
+      const res = await fetch(hist.url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) return [];
       const data: HistoryData = await res.json();
       return data.records;

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// 主页面 — AI Voice Studio（浅紫色主题）
+// 主页面 — AI Voice Studio
 // ============================================
 
 import { useState, useCallback, useEffect } from "react";
@@ -41,7 +41,6 @@ export default function Home() {
     async (text: string, style: TranslationStyle) => {
       setSourceText(text);
       setWorkflowState("translating");
-      // 先清空旧结果，避免旧的 VoicePlayer 在新音频加载时闪烁
       setTranslationResult(null);
       setTTSResult(null);
 
@@ -60,13 +59,9 @@ export default function Home() {
         translateResult.translatedText,
         selectedVoiceId
       );
-
-      if (ttsResult) {
-        setTTSResult(ttsResult);
-      }
+      if (ttsResult) setTTSResult(ttsResult);
       setWorkflowState("done");
 
-      // 保存历史
       const recordId = `rec_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 8)}`;
@@ -127,18 +122,14 @@ export default function Home() {
   const handleDeleteHistory = useCallback(
     async (id: string) => {
       const success = await historyStore.deleteItem(id);
-      if (success && id === currentRecordId) {
-        handleReset();
-      }
+      if (success && id === currentRecordId) handleReset();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [historyStore, currentRecordId]
   );
 
   const handleSearchHistory = useCallback(
-    (query: string) => {
-      historyStore.loadHistory(query);
-    },
+    (query: string) => historyStore.loadHistory(query),
     [historyStore]
   );
 
@@ -163,28 +154,25 @@ export default function Home() {
     }
   }, [ttsResult]);
 
-  // ============================================
-  // Render
-  // ============================================
   const isProcessing =
     workflowState === "translating" || workflowState === "generating";
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto min-h-screen max-w-6xl px-3 py-3 sm:px-5 sm:py-4">
       {/* ======== Header ======== */}
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-purple-600 via-violet-500 to-pink-500 px-5 py-4 text-white shadow-lg shadow-purple-200/50">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-gray-800">
+          <h1 className="text-lg font-bold tracking-tight">
             🎙️ AI Voice Studio
           </h1>
-          <p className="mt-0.5 text-sm text-gray-400">
-            DeepSeek 翻译 · ElevenLabs 配音 · AI 英文口播生成
+          <p className="mt-0.5 text-xs text-white/70">
+            DeepSeek 翻译 · ElevenLabs 配音 · 英文口播一键生成
           </p>
         </div>
         {workflowState !== "idle" && (
           <button
             onClick={handleReset}
-            className="rounded-xl px-4 py-1.5 text-sm text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+            className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 backdrop-blur-sm transition-all"
           >
             + 新建
           </button>
@@ -192,62 +180,57 @@ export default function Home() {
       </header>
 
       {/* ======== Main Content ======== */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ---- Left: 工作流区 ---- */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* Step 1: 输入区 — 始终固定 */}
-          <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* ---- Left ---- */}
+        <div className="space-y-3 lg:col-span-2">
+          {/* Step 1: 输入 */}
+          <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
             <ScriptInput
               onGenerate={handleGenerate}
               isGenerating={isProcessing}
             />
           </section>
 
-          {/* Step 2 & 3: 结果区 — 固定高度容器，防止布局抖动 */}
-          <div className="min-h-[200px] space-y-4">
-            {/* Loading: 翻译中 */}
+          {/* Step 2 & 3: 结果区 */}
+          <div className="min-h-[160px] space-y-3">
             {workflowState === "translating" && (
-              <section className="rounded-2xl border border-purple-100 bg-white shadow-sm p-6">
+              <section className="rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100 p-4">
                 <div className="flex items-center gap-3">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
-                  <span className="text-sm text-gray-500">
-                    正在用 DeepSeek 翻译...
+                  <span className="text-sm text-purple-600 font-medium">
+                    DeepSeek 翻译中...
                   </span>
                 </div>
               </section>
             )}
 
-            {/* Loading: 语音生成中 */}
-            {workflowState === "generating" && (
-              <>
-                {/* 翻译结果已经可以展示 */}
-                {translationResult && (
-                  <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                    <h2 className="mb-3 text-sm font-semibold text-gray-400">
-                      英文翻译
-                    </h2>
-                    <TranslationResult
-                      translatedText={translationResult.translatedText}
-                      style={translationResult.style}
-                      costUsd={translationResult.costUsd}
-                    />
-                  </section>
-                )}
-                <section className="rounded-2xl border border-purple-100 bg-white shadow-sm p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
-                    <span className="text-sm text-gray-500">
-                      正在用 ElevenLabs 生成语音...
-                    </span>
-                  </div>
-                </section>
-              </>
+            {workflowState === "generating" && translationResult && (
+              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
+                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
+                  英文翻译
+                </h2>
+                <TranslationResult
+                  translatedText={translationResult.translatedText}
+                  style={translationResult.style}
+                  costUsd={translationResult.costUsd}
+                />
+              </section>
             )}
 
-            {/* Done: 翻译结果 */}
-            {translationResult && workflowState !== "generating" && (
-              <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                <h2 className="mb-3 text-sm font-semibold text-gray-400">
+            {workflowState === "generating" && (
+              <section className="rounded-xl bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-100 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" />
+                  <span className="text-sm text-violet-600 font-medium">
+                    ElevenLabs 语音生成中...
+                  </span>
+                </div>
+              </section>
+            )}
+
+            {translationResult && workflowState === "done" && (
+              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
+                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
                   英文翻译
                 </h2>
                 <TranslationResult
@@ -261,10 +244,9 @@ export default function Home() {
               </section>
             )}
 
-            {/* Done: 语音预览 */}
             {ttsResult && workflowState === "done" && (
-              <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                <h2 className="mb-3 text-sm font-semibold text-gray-400">
+              <section className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4">
+                <h2 className="mb-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
                   语音预览
                 </h2>
                 <VoicePlayer
@@ -276,20 +258,19 @@ export default function Home() {
               </section>
             )}
 
-            {/* Idle 占位：防止页面在初始状态时过于空洞 */}
             {workflowState === "idle" && (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-10 text-center">
-                <p className="text-sm text-gray-400">
-                  输入中文文案，选择翻译风格，开始生成 ✨
+              <div className="rounded-xl border border-dashed border-purple-200/60 bg-gradient-to-b from-purple-50/30 to-pink-50/20 p-6 text-center">
+                <p className="text-sm text-purple-300">
+                  输入中文文案，选择风格，开始生成 ✨
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* ---- Right: 历史记录 ---- */}
+        {/* ---- Right: History ---- */}
         <aside className="lg:col-span-1">
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 lg:sticky lg:top-6">
+          <div className="rounded-2xl border border-purple-100/60 bg-white shadow-sm p-4 lg:sticky lg:top-4">
             <HistoryPanel
               records={historyStore.records}
               isLoading={historyStore.isLoading}
@@ -302,14 +283,14 @@ export default function Home() {
       </div>
 
       {/* ======== Footer ======== */}
-      <footer className="mt-10 pb-6 text-center">
-        <p className="text-xs text-gray-400">
+      <footer className="mt-6 pb-4 text-center">
+        <p className="text-xs text-gray-300">
           Powered by{" "}
           <a
             href="https://platform.deepseek.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-500 hover:text-purple-600 transition-colors underline underline-offset-2"
+            className="text-purple-400 hover:text-purple-500 transition-colors"
           >
             DeepSeek
           </a>{" "}
@@ -318,7 +299,7 @@ export default function Home() {
             href="https://elevenlabs.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-500 hover:text-purple-600 transition-colors underline underline-offset-2"
+            className="text-purple-400 hover:text-purple-500 transition-colors"
           >
             ElevenLabs
           </a>

@@ -5,7 +5,6 @@
 // ============================================
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { formatCost } from "@/lib/cost";
 import type { TranslationStyle } from "@/types";
 
@@ -17,11 +16,17 @@ interface TranslationResultProps {
   onRegenerate?: () => void;
 }
 
-const STYLE_LABELS: Record<TranslationStyle, string> = {
-  tiktok: "TikTok 风格",
-  professional: "专业商务",
-  casual: "日常闲聊",
-  sales: "美式促销",
+const STYLE_CONFIG: Record<
+  TranslationStyle,
+  { label: string; accent: string }
+> = {
+  tiktok: { label: "TikTok 风格", accent: "from-purple-500 to-violet-500" },
+  professional: {
+    label: "专业商务",
+    accent: "from-blue-500 to-sky-500",
+  },
+  casual: { label: "日常闲聊", accent: "from-emerald-500 to-teal-500" },
+  sales: { label: "美式促销", accent: "from-orange-500 to-rose-500" },
 };
 
 export function TranslationResult({
@@ -38,9 +43,6 @@ export function TranslationResult({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(translatedText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      onCopy?.();
     } catch {
       const textarea = document.createElement("textarea");
       textarea.value = translatedText;
@@ -48,44 +50,43 @@ export function TranslationResult({
       textarea.select();
       document.execCommand("copy");
       document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    onCopy?.();
   };
 
-  if (!translatedText) {
-    return null;
-  }
+  if (!translatedText) return null;
+
+  const config = STYLE_CONFIG[style];
 
   return (
-    <div className="space-y-3 rounded-xl border border-gray-100 bg-purple-50/30 p-4">
+    <div className="space-y-2.5">
       {/* 头部 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
-            {STYLE_LABELS[style]}
+          <span
+            className={`rounded-md bg-gradient-to-r ${config.accent} px-2 py-0.5 text-[11px] font-medium text-white`}
+          >
+            {config.label}
           </span>
-          <span className="text-xs text-gray-400">
-            费用 {formatCost(costUsd)}
+          <span className="text-[11px] text-gray-400">
+            {formatCost(costUsd)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="flex items-center gap-1">
+          <button
             onClick={() => setIsEditing(!isEditing)}
-            className="h-7 text-xs text-gray-400 hover:text-purple-600 hover:bg-purple-50"
+            className="rounded-lg px-2 py-1 text-[11px] text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
           >
             {isEditing ? "预览" : "编辑"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+          </button>
+          <button
             onClick={handleCopy}
-            className="h-7 text-xs text-gray-400 hover:text-purple-600 hover:bg-purple-50"
+            className="rounded-lg px-2 py-1 text-[11px] text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
           >
             {copied ? "已复制 ✓" : "复制"}
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -95,33 +96,36 @@ export function TranslationResult({
           <textarea
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
-            rows={4}
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 resize-none"
+            rows={3}
+            className="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 resize-none"
           />
-          <Button
-            size="sm"
+          <button
             onClick={() => setIsEditing(false)}
-            className="text-xs rounded-lg bg-purple-500 hover:bg-purple-600 text-white"
+            className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 px-3 py-1 text-xs font-medium text-white"
           >
             保存
-          </Button>
+          </button>
         </div>
       ) : (
-        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-          {translatedText}
-        </p>
+        <div className="relative rounded-xl bg-gradient-to-br from-purple-50/50 via-white to-pink-50/30 border border-purple-100/60 p-3">
+          {/* 左侧装饰条 */}
+          <div
+            className={`absolute left-0 top-2 bottom-2 w-1 rounded-full bg-gradient-to-b ${config.accent}`}
+          />
+          <p className="pl-3 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+            {translatedText}
+          </p>
+        </div>
       )}
 
       {/* 重新生成 */}
       {onRegenerate && (
-        <div className="pt-1 border-t border-purple-100">
-          <button
-            onClick={onRegenerate}
-            className="text-xs text-gray-400 hover:text-purple-500 transition-colors"
-          >
-            🔄 重新翻译
-          </button>
-        </div>
+        <button
+          onClick={onRegenerate}
+          className="text-[11px] text-gray-400 hover:text-purple-500 transition-colors"
+        >
+          🔄 重新翻译
+        </button>
       )}
     </div>
   );

@@ -5,7 +5,6 @@
 // ============================================
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import type { HistoryRecord } from "@/types";
 
 interface HistoryPanelProps {
@@ -32,26 +31,18 @@ function groupByDate(
   ];
 
   for (const record of records) {
-    const recordDate = new Date(record.createdAt);
-    if (recordDate >= today) {
-      groups[0].items.push(record);
-    } else if (recordDate >= yesterday) {
-      groups[1].items.push(record);
-    } else if (recordDate >= lastWeek) {
-      groups[2].items.push(record);
-    } else {
-      groups[3].items.push(record);
-    }
+    const d = new Date(record.createdAt);
+    if (d >= today) groups[0].items.push(record);
+    else if (d >= yesterday) groups[1].items.push(record);
+    else if (d >= lastWeek) groups[2].items.push(record);
+    else groups[3].items.push(record);
   }
-
   return groups.filter((g) => g.items.length > 0);
 }
 
-function formatTime(isoString: string): string {
-  const date = new Date(isoString);
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
 export function HistoryPanel({
@@ -63,78 +54,75 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSearch = () => {
-    onSearch(searchQuery);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
+  const handleSearch = () => onSearch(searchQuery);
 
   const groups = groupByDate(records);
 
   return (
-    <div className="space-y-4">
-      {/* 标题 */}
-      <h3 className="text-sm font-semibold text-gray-600">
-        📜 历史记录
-      </h3>
+    <div className="space-y-3">
+      {/* 标题 + 搜索 */}
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
+          📜 历史记录
+        </h3>
+        {records.length > 0 && (
+          <span className="text-[10px] text-gray-300 bg-gray-100 rounded-full px-1.5 py-0.5">
+            {records.length}
+          </span>
+        )}
+      </div>
 
-      {/* 搜索栏 */}
-      <div className="flex gap-2">
+      {/* 搜索 */}
+      <div className="flex gap-1.5">
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           placeholder="搜索..."
-          className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 placeholder:text-gray-300 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100"
+          className="flex-1 rounded-lg border border-purple-100 bg-gradient-to-r from-purple-50/30 to-white px-2.5 py-1.5 text-xs text-gray-600 placeholder:text-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-200 transition-all"
         />
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={handleSearch}
-          className="h-8 text-xs rounded-lg border-gray-200 text-gray-400 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+          className="rounded-lg border border-purple-200 px-2.5 py-1.5 text-[11px] text-purple-500 hover:bg-purple-50 transition-colors"
         >
           搜索
-        </Button>
+        </button>
       </div>
 
       {/* 列表 */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
+        <div className="flex justify-center py-6">
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-6 text-center text-xs text-gray-300">
-          {searchQuery
-            ? "未找到匹配记录"
-            : "暂无记录，生成第一条吧 ✨"}
+        <p className="py-4 text-center text-[11px] text-gray-300">
+          {searchQuery ? "未找到" : "暂无记录 ✨"}
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="mb-2 text-xs font-medium text-gray-300 uppercase tracking-wider">
+              <p className="mb-1.5 text-[10px] font-medium text-gray-300 uppercase tracking-wider">
                 {group.label}
               </p>
               <div className="space-y-1">
                 {group.items.map((record) => (
                   <div
                     key={record.id}
-                    className="group flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2.5 hover:border-purple-200 hover:bg-purple-50/50 transition-colors cursor-pointer"
+                    className="group flex items-center gap-2 rounded-lg border border-gray-100 bg-gradient-to-r from-white to-purple-50/20 px-2.5 py-2 hover:border-purple-200 hover:shadow-sm cursor-pointer transition-all"
                     onClick={() => onSelect(record)}
                   >
+                    {/* 左侧色条 */}
+                    <div className="w-0.5 self-stretch rounded-full bg-gradient-to-b from-purple-400 to-pink-400 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-gray-700 truncate">
+                      <p className="text-[11px] text-gray-600 truncate leading-snug">
                         {record.translatedText}
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400 truncate">
+                      <p className="mt-0.5 text-[10px] text-gray-400 truncate">
                         {record.sourceText}
                       </p>
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="mt-0.5 flex items-center gap-2">
                         {record.voiceName && (
                           <span className="text-[10px] text-gray-400">
                             🎤 {record.voiceName}
@@ -145,18 +133,16 @@ export function HistoryPanel({
                         </span>
                       </div>
                     </div>
-
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete(record.id);
                       }}
-                      className="ml-2 shrink-0 rounded p-1 text-gray-300 hover:text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                      title="删除"
+                      className="shrink-0 rounded p-1 text-gray-300 hover:text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <svg
-                        width="14"
-                        height="14"
+                        width="12"
+                        height="12"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -171,12 +157,6 @@ export function HistoryPanel({
             </div>
           ))}
         </div>
-      )}
-
-      {records.length > 0 && (
-        <p className="text-center text-[10px] text-gray-300">
-          共 {records.length} 条记录
-        </p>
       )}
     </div>
   );

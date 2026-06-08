@@ -8,8 +8,6 @@ interface VoiceMultiSelectProps {
   onToggle: (voiceId: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
-  onGenerate: () => void;
-  isGenerating: boolean;
   disabled: boolean;
 }
 
@@ -19,11 +17,10 @@ const VOICE_COLORS: Record<string, string> = {
 };
 
 export function VoiceMultiSelect({
-  voices, selectedIds, onToggle, onSelectAll, onDeselectAll,
-  onGenerate, isGenerating, disabled,
+  voices, selectedIds, onToggle, onSelectAll, onDeselectAll, disabled,
 }: VoiceMultiSelectProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500">🎤 选择音色</h3>
         <div className="flex gap-1">
@@ -38,7 +35,6 @@ export function VoiceMultiSelect({
         </div>
       </div>
 
-      {/* 音色列表 */}
       <div className="space-y-1">
         {voices.map((voice) => {
           const checked = selectedIds.has(voice.voiceId);
@@ -56,7 +52,6 @@ export function VoiceMultiSelect({
                   ? `linear-gradient(135deg, ${accent}10 0%, ${accent}08 100%)`
                   : "#fff",
               }}>
-              {/* 自定义 checkbox */}
               <div
                 className="h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-all"
                 style={{
@@ -78,25 +73,9 @@ export function VoiceMultiSelect({
         })}
       </div>
 
-      {/* 生成按钮 */}
-      <button
-        onClick={onGenerate} disabled={selectedIds.size === 0 || isGenerating || disabled}
-        className="w-full h-9 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{
-          background: selectedIds.size > 0
-            ? "linear-gradient(135deg, #9b87d0 0%, #8498c8 100%)"
-            : "linear-gradient(135deg, #c8bce8 0%, #b0b8d8 100%)",
-          boxShadow: selectedIds.size > 0 ? "0 2px 8px rgba(130,145,190,0.3)" : "none",
-        }}>
-        {isGenerating ? (
-          <span className="flex items-center justify-center gap-1.5">
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            生成中...
-          </span>
-        ) : (
-          `🎤 生成语音 (${selectedIds.size} 个音色)`
-        )}
-      </button>
+      <p className="text-[10px] text-gray-350">
+        已选 {selectedIds.size}/{voices.length} 个音色
+      </p>
     </div>
   );
 }

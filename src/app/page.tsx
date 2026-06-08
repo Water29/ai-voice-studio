@@ -113,7 +113,7 @@ export default function Home() {
       } else { setError(data.error || "语音生成失败"); }
     } catch { setError("语音生成出错"); }
     finally { setVoiceGenTab(null); }
-  }, [translations, selectedVoiceIds, sourceText, historyStore]);
+  }, [translations, selectedVoiceIds, sourceText, historyStore, recordId, activeTransTab]);
 
   // ============ 音色 ============
   const handleToggleVoice = useCallback((id: string) => {

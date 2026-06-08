@@ -4,12 +4,7 @@
 // ============================================
 
 import { NextResponse } from "next/server";
-import {
-  readHistory,
-  searchHistory,
-  addRecord,
-} from "@/lib/storage";
-import type { HistoryRecord } from "@/types";
+import { readHistory, searchHistory, addRecord } from "@/lib/storage";
 
 export async function GET(request: Request) {
   try {
@@ -20,39 +15,11 @@ export async function GET(request: Request) {
       ? await searchHistory(query)
       : await readHistory();
 
-    // 始终附带诊断信息
-    const diag: any = {
-      vercel: !!process.env.VERCEL,
-      hasBlob: !!process.env.BLOB_READ_WRITE_TOKEN,
-    };
-
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      try {
-        const { list } = await import("@vercel/blob");
-        const all = await list();
-        diag.totalBlobs = all.blobs.length;
-        diag.blobPaths = all.blobs.map((b: any) => b.pathname);
-        const hist = await list({ prefix: "history/data.json" });
-        if (hist.blobs.length > 0) {
-          diag.foundHistory = true;
-          const res = await fetch(hist.blobs[0].downloadUrl);
-          diag.downloadOk = res.ok;
-          diag.downloadStatus = res.status;
-        } else {
-          diag.foundHistory = false;
-        }
-      } catch (e: any) {
-        diag.blobError = e.message;
-      }
-    }
-
-    return NextResponse.json({ records, _diag: diag });
+    return NextResponse.json({ records });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "未知";
-    return NextResponse.json(
-      { error: msg },
-      { status: 500 }
-    );
+    console.error("获取历史记录错误:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -67,7 +34,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 兼容新旧格式：translations数组 或 translatedText字符串
     const record = {
       id: body.id,
       sourceText: body.sourceText,
@@ -86,10 +52,8 @@ export async function POST(request: Request) {
     await addRecord(record);
     return NextResponse.json({ success: true, id: record.id });
   } catch (error) {
-    console.error("保存历史记录错误:", error);
-    return NextResponse.json(
-      { error: "保存历史记录失败" },
-      { status: 500 }
-    );
+    const msg = error instanceof Error ? error.message : "未知";
+    console.error("保存历史记录错误:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

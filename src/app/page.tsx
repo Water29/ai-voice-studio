@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { ScriptInput } from "@/components/ScriptInput";
 import { TranslationResult } from "@/components/TranslationResult";
 import { VoicePlayer } from "@/components/VoicePlayer";
+import { WaveformPlayer } from "@/components/WaveformPlayer";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { CostDisplay } from "@/components/CostDisplay";
 import { HistoryPanel } from "@/components/HistoryPanel";
@@ -247,17 +248,24 @@ export default function Home() {
             {ttsResult && workflowState === "done" && (
               <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
                 <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">语音预览</h2>
-                <VoicePlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} durationMs={ttsResult.durationMs} onDownload={handleDownload} />
+                <WaveformPlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} onDownload={handleDownload} />
+                {/* 简洁播放器作为备选 */}
+                <details className="mt-2">
+                  <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-purple-400">简洁播放器</summary>
+                  <div className="mt-2"><VoicePlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} durationMs={ttsResult.durationMs} onDownload={handleDownload} /></div>
+                </details>
+              </section>
+            )}
 
-                {/* Phase2: 多音色试听列表 */}
-                {multiTtsResults.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-purple-100 space-y-2">
-                    <p className="text-[10px] text-gray-400">其他音色试听：</p>
-                    {multiTtsResults.filter(r => !r._error).map(r => (
-                      <VoicePlayer key={r.voiceName} audioUrl={r.audioUrl} voiceName={r.voiceName} durationMs={r.durationMs} />
-                    ))}
-                  </div>
-                )}
+            {/* Phase2: 多音色试听列表 */}
+            {multiTtsResults.length > 0 && workflowState === "done" && (
+              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">其他音色试听</h2>
+                <div className="space-y-2">
+                  {multiTtsResults.filter(r => !r._error).map(r => (
+                    <VoicePlayer key={r.voiceName} audioUrl={r.audioUrl} voiceName={r.voiceName} durationMs={r.durationMs} />
+                  ))}
+                </div>
               </section>
             )}
 

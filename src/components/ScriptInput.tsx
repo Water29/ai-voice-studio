@@ -1,9 +1,5 @@
 "use client";
 
-// ============================================
-// ScriptInput — 简洁输入区（移除风格选择，AI 自动判断）
-// ============================================
-
 import { useState } from "react";
 
 interface ScriptInputProps {
@@ -22,27 +18,30 @@ export function ScriptInput({ onGenerate, isGenerating }: ScriptInputProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-600">中文口播文案</h2>
-          <p className="mt-0.5 text-xs text-gray-400">
-            AI 将自动判断风格，生成 3 个版本的英文翻译
-          </p>
-        </div>
+      <div>
+        <h2 className="text-sm font-semibold text-gray-600">中文口播文案</h2>
+        <p className="mt-0.5 text-xs text-gray-400">
+          AI 将自动判断风格，生成 3 个版本的英文翻译
+        </p>
       </div>
 
-      <div className="relative">
+      {/* 输入框 — 加高 + 可见边框 + 字数在下方 */}
+      <div>
         <textarea
           value={text} onChange={(e) => setText(e.target.value)}
           placeholder="例如：这款机器人能帮你自动修剪草坪，省时省力，你值得拥有！"
-          rows={3} maxLength={maxChars}
+          rows={6} maxLength={maxChars}
           disabled={isGenerating}
-          className="w-full rounded-xl bg-white px-4 py-2.5 text-sm text-gray-600 placeholder:text-gray-350 focus:outline-none focus:ring-2 focus:ring-purple-200/50 disabled:opacity-50 resize-none transition-all"
-          style={{ borderColor: "#d0c4e8", boxShadow: "inset 0 1px 3px rgba(120,100,160,0.04)" }}
+          className="w-full rounded-xl bg-white px-4 py-3 text-sm text-gray-600 placeholder:text-gray-350 focus:outline-none focus:ring-2 focus:ring-purple-200/50 disabled:opacity-50 resize-none transition-all"
+          style={{
+            border: "1.5px solid #d0c4e8",
+            boxShadow: "inset 0 1px 3px rgba(120,100,160,0.04)",
+          }}
         />
-        <div className="absolute bottom-2 right-3">
+        {/* 字数统计 — 移到输入框下方 */}
+        <div className="flex justify-end mt-1">
           <span className={`text-xs ${charCount > maxChars * 0.9 ? "text-red-400" : "text-gray-350"}`}>
-            {charCount}/{maxChars}
+            {charCount} / {maxChars}
           </span>
         </div>
       </div>

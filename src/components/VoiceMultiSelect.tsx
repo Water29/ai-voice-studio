@@ -1,9 +1,5 @@
 "use client";
 
-// ============================================
-// VoiceMultiSelect — 多选音色组件
-// ============================================
-
 import type { Voice } from "@/types";
 
 interface VoiceMultiSelectProps {
@@ -48,8 +44,9 @@ export function VoiceMultiSelect({
           const checked = selectedIds.has(voice.voiceId);
           const accent = VOICE_COLORS[voice.name] || "#9b87d0";
           return (
-            <label
+            <div
               key={voice.voiceId}
+              onClick={() => !disabled && onToggle(voice.voiceId)}
               className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-all ${
                 disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-sm"
               }`}
@@ -59,20 +56,24 @@ export function VoiceMultiSelect({
                   ? `linear-gradient(135deg, ${accent}10 0%, ${accent}08 100%)`
                   : "#fff",
               }}>
-              <input
-                type="checkbox" checked={checked}
-                onChange={() => onToggle(voice.voiceId)}
-                disabled={disabled}
-                className="h-3.5 w-3.5 rounded accent-purple-400"
-              />
+              {/* 自定义 checkbox */}
+              <div
+                className="h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+                style={{
+                  borderColor: checked ? accent : "#d1d5db",
+                  background: checked ? accent : "#fff",
+                }}>
+                {checked && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <span className="text-[11px] font-semibold text-gray-600">{voice.name}</span>
                 <span className="text-[10px] text-gray-400 ml-1.5">{voice.description}</span>
               </div>
-              {checked && (
-                <span className="text-[10px] font-medium" style={{ color: accent }}>✓</span>
-              )}
-            </label>
+            </div>
           );
         })}
       </div>

@@ -4,16 +4,19 @@
 // 本地:       data/history/{id}.json
 // ============================================
 
-import fs from "fs/promises";
-import path from "path";
 import type { HistoryRecord } from "@/types";
-
-const MAX_RECORDS = 100;
 
 function onVercel(): boolean { return !!process.env.VERCEL; }
 function hasBlob(): boolean { return !!process.env.BLOB_READ_WRITE_TOKEN; }
-
 function blobKey(id: string): string { return `history/${id}.json`; }
+
+// Node.js built-ins — 仅服务端，Vercel编译时处理
+let fs: any = null;
+let path: any = null;
+async function getFS() {
+  if (!fs) { fs = await import("fs/promises"); path = await import("path"); }
+  return { fs, path };
+}
 
 // ============================================
 // 读取全部
@@ -32,29 +35,30 @@ export async function readHistory(): Promise<HistoryRecord[]> {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) records.push(await res.json());
-        } catch { /* skip corrupt blob */ }
+        } catch { /* skip corrupt */ }
       }
       return records.sort((a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     } catch (e: any) {
-      console.error("[storage] readHistory:", e.message);
+      console.error("[storage] readHistory blob:", e.message);
       return [];
     }
   }
 
   if (onVercel()) return [];
 
-  // 本地：扫描 data/history/ 目录
+  // 本地
   try {
-    const dir = path.join(process.cwd(), "data", "history");
-    await fs.mkdir(dir, { recursive: true });
-    const files = await fs.readdir(dir);
+    const { fs: f, path: p } = await getFS();
+    const dir = p.join(process.cwd(), "data", "history");
+    await f.mkdir(dir, { recursive: true });
+    const files = await f.readdir(dir);
     const records: HistoryRecord[] = [];
-    for (const f of files) {
-      if (!f.endsWith(".json")) continue;
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
       try {
-        const raw = await fs.readFile(path.join(dir, f), "utf-8");
+        const raw = await f.readFile(p.join(dir, file), "utf-8");
         records.push(JSON.parse(raw));
       } catch { /* skip */ }
     }
@@ -74,12 +78,18 @@ export async function addRecord(record: HistoryRecord): Promise<void> {
   const json = JSON.stringify(record);
 
   if (onVercel() && hasBlob()) {
-    const { put } = await import("@vercel/blob");
-    await put(blobKey(record.id), json, {
-      access: "private",
-      allowOverwrite: true,
-      contentType: "application/json",
-    });
+    try {
+      const { put } = await import("@vercel/blob");
+      await put(blobKey(record.id), json, {
+        access: "private",
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+      console.log(`[storage] blob saved: ${blobKey(record.id)}`);
+    } catch (e: any) {
+      console.error(`[storage] blob addRecord failed: ${e.message}`);
+      throw e; // 抛出让调用方感知
+    }
     return;
   }
 
@@ -87,11 +97,13 @@ export async function addRecord(record: HistoryRecord): Promise<void> {
 
   // 本地
   try {
-    const dir = path.join(process.cwd(), "data", "history");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, `${record.id}.json`), json, "utf-8");
+    const { fs: f, path: p } = await getFS();
+    const dir = p.join(process.cwd(), "data", "history");
+    await f.mkdir(dir, { recursive: true });
+    await f.writeFile(p.join(dir, `${record.id}.json`), json, "utf-8");
   } catch (e: any) {
     console.error("[storage] local addRecord:", e.message);
+    throw e;
   }
 }
 
@@ -104,20 +116,19 @@ export async function getRecord(id: string): Promise<HistoryRecord | null> {
       const { list } = await import("@vercel/blob");
       const all = await list({ prefix: blobKey(id) });
       if (all.blobs.length === 0) return null;
-      const token = process.env.BLOB_READ_WRITE_TOKEN!;
       const res = await fetch(all.blobs[0].url, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN!}` },
       });
-      if (!res.ok) return null;
-      return await res.json();
+      return res.ok ? await res.json() : null;
     } catch { return null; }
   }
 
   if (onVercel()) return null;
 
   try {
-    const file = path.join(process.cwd(), "data", "history", `${id}.json`);
-    return JSON.parse(await fs.readFile(file, "utf-8"));
+    const { fs: f, path: p } = await getFS();
+    const file = p.join(process.cwd(), "data", "history", `${id}.json`);
+    return JSON.parse(await f.readFile(file, "utf-8"));
   } catch { return null; }
 }
 
@@ -130,17 +141,14 @@ export async function deleteRecord(id: string): Promise<boolean> {
         await (await import("@vercel/blob")).del(b.url);
       }
       return true;
-    } catch (e: any) {
-      console.error("[storage] deleteRecord:", e.message);
-      return false;
-    }
+    } catch (e: any) { console.error("[storage] deleteRecord:", e.message); return false; }
   }
 
   if (onVercel()) return true;
 
   try {
-    const file = path.join(process.cwd(), "data", "history", `${id}.json`);
-    await fs.unlink(file);
+    const { fs: f, path: p } = await getFS();
+    await f.unlink(p.join(process.cwd(), "data", "history", `${id}.json`));
     return true;
   } catch { return false; }
 }

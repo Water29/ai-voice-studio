@@ -26,37 +26,34 @@ export async function POST(request: Request) {
 
     const results = await generateMultiSpeech(body.text, body.voiceIds);
 
-    // 更新历史记录（有 recordId 就保存，不依赖读取旧数据）
+    // 更新历史记录 — 始终保存，不管成功或失败
     let histSaved = false;
     let histError = "";
     const rid = body.recordId || `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
+    const allVoiceResults = results.map((r: any) => ({
+      voiceName: r.voiceName, audioUrl: r.audioUrl || "",
+      durationMs: r.durationMs || 0,
+      _error: r._error || (r.audioUrl ? undefined : "生成失败"),
+      forText: body.text,
+    }));
+
     try {
       const { addRecord } = await import("@/lib/storage");
-      const newResults = results
-        .filter((r: any) => r.audioUrl) // 只要成功生成的
-        .map((r: any) => ({
-          voiceName: r.voiceName, audioUrl: r.audioUrl,
-          durationMs: r.durationMs, _error: r._error || undefined,
-          forText: body.text,
-        }));
-      if (newResults.length > 0) {
-        await addRecord({
-          id: rid,
-          sourceText: body.sourceText || "",
-          translatedText: body.translations?.[0]?.text || body.text || "",
-          translationStyle: body.translations?.[0]?.style || "",
-          translations: body.translations || [{ text: body.text || "", style: "", label: "" }],
-          voiceResults: newResults,
-          audioUrl: newResults[0]?.audioUrl || null,
-          voiceName: newResults[0]?.voiceName || null,
-          voiceId: null, durationMs: newResults[0]?.durationMs || null,
-          costUsd: 0,
-          createdAt: body.createdAt || new Date().toISOString(),
-        } as any);
-        histSaved = true;
-      } else {
-        histError = "无成功生成的音频";
-      }
+      await addRecord({
+        id: rid,
+        sourceText: body.sourceText || "",
+        translatedText: body.translations?.[0]?.text || body.text || "",
+        translationStyle: body.translations?.[0]?.style || "",
+        translations: body.translations || [{ text: body.text || "", style: "", label: "" }],
+        voiceResults: allVoiceResults,
+        audioUrl: allVoiceResults.find((r: any) => r.audioUrl)?.audioUrl || null,
+        voiceName: allVoiceResults.find((r: any) => r.audioUrl)?.voiceName || null,
+        voiceId: null,
+        durationMs: allVoiceResults.find((r: any) => r.audioUrl)?.durationMs || null,
+        costUsd: 0,
+        createdAt: body.createdAt || new Date().toISOString(),
+      } as any);
+      histSaved = true;
     } catch (e: any) {
       histError = e.message;
     }

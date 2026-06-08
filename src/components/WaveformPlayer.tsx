@@ -47,7 +47,9 @@ export function WaveformPlayer({ audioUrl, voiceName, onDownload, onTimeUpdate }
           normalize: true,
         });
 
-        ws.load(audioUrl);
+        // 兼容旧格式 /audio/ → /api/audio/
+        const loadUrl = audioUrl.startsWith("/audio/") ? audioUrl.replace("/audio/", "/api/audio/") : audioUrl;
+        ws.load(loadUrl);
 
         ws.on("ready", () => {
           if (dead) return;

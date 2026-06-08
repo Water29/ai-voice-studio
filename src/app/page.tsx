@@ -31,9 +31,10 @@ export default function Home() {
   const [translations, setTranslations] = useState<TransItem[]>([]);
   const [activeTransTab, setActiveTransTab] = useState(0);
 
+  const [recordId, setRecordId] = useState<string>("");
   // 每个翻译 tab 独立的语音结果 + 生成状态
   const [voiceMap, setVoiceMap] = useState<Map<number, VoiceItem[]>>(new Map());
-  const [voiceGenTab, setVoiceGenTab] = useState<number | null>(null); // 正在生成语音的 tab
+  const [voiceGenTab, setVoiceGenTab] = useState<number | null>(null);
 
   useEffect(() => { historyStore.loadHistory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -43,6 +44,8 @@ export default function Home() {
   const handleTranslate = useCallback(async (text: string) => {
     setSourceText(text); setPhase("translating"); setError(null);
     setTranslations([]); setVoiceMap(new Map()); setVoiceGenTab(null);
+    const rid = `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
+    setRecordId(rid);
 
     try {
       const res = await fetch("/api/translate/multi", {
@@ -54,6 +57,21 @@ export default function Home() {
         const valid = data.translations.filter((t: any) => t.translatedText);
         if (valid.length === 0) { setError("AI 未能生成有效翻译，请重试"); setPhase("idle"); return; }
         setTranslations(valid); setActiveTransTab(0); setPhase("translated");
+
+        // 保存翻译历史
+        try {
+          await fetch("/api/history", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: rid,
+              sourceText: text,
+              translations: valid.map((t: any) => ({ text: t.translatedText, style: t.style, label: t.label })),
+              voiceResults: [],
+              createdAt: new Date().toISOString(),
+            }),
+          });
+          historyStore.refresh();
+        } catch { /* ignore */ }
       } else { setError(data.error || "翻译失败"); setPhase("idle"); }
     } catch { setError("网络错误"); setPhase("idle"); }
   }, []);
@@ -95,16 +113,18 @@ export default function Home() {
           }
         }
 
-        // 保存历史（完整信息）
+        // 保存历史（同 recordId，更新语音信息）
         try {
+          // 先删除旧记录
+          await fetch(`/api/history/${recordId}`, { method: "DELETE" });
+          // 再保存完整记录
           await fetch("/api/history", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              id: `rec_${Date.now()}`,
+              id: recordId,
               sourceText,
               translations: translations.map(t => ({ text: t.translatedText, style: t.style, label: t.label })),
-              selectedTranslation: trans.translatedText,
-              voiceResults: results.map(r => ({ voiceName: r.voiceName, audioUrl: r.audioUrl, durationMs: r.durationMs })),
+              voiceResults: results.map(r => ({ voiceName: r.voiceName, audioUrl: r.audioUrl, durationMs: r.durationMs, _error: r._error || undefined })),
               createdAt: new Date().toISOString(),
             }),
           });
@@ -242,7 +262,7 @@ export default function Home() {
         <div className="space-y-4 lg:col-span-2">
           <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
             <VoiceMultiSelect voices={VOICES} selectedIds={selectedVoiceIds} onToggle={handleToggleVoice}
-              onSelectAll={() => setSelectedVoiceIds(new Set(VOICES.map(v => v.voiceId)))}
+              onSelectAll={() => setSelectedVoiceIds(new Set(VOICES.filter(v => !["Rachel","Sam","Domi","Emily"].includes(v.name)).map(v => v.voiceId)))}
               onDeselectAll={() => setSelectedVoiceIds(new Set())} disabled={isLocked} />
           </section>
           <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">

@@ -39,12 +39,18 @@ export function VoiceMultiSelect({
         {voices.map((voice) => {
           const checked = selectedIds.has(voice.voiceId);
           const accent = VOICE_COLORS[voice.name] || "#9b87d0";
+          // Rachel, Sam, Domi, Emily 需要付费计划
+          const isPaidOnly = ["Rachel", "Sam", "Domi", "Emily"].includes(voice.name);
+          const canSelect = !isPaidOnly && !disabled;
+
           return (
             <div
               key={voice.voiceId}
-              onClick={() => !disabled && onToggle(voice.voiceId)}
-              className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-all ${
-                disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-sm"
+              onClick={() => canSelect && onToggle(voice.voiceId)}
+              className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-all ${
+                isPaidOnly ? "opacity-50 cursor-not-allowed" :
+                disabled ? "opacity-50 cursor-not-allowed" :
+                "cursor-pointer hover:shadow-sm"
               }`}
               style={{
                 borderColor: checked ? accent + "80" : "#e5e7eb",
@@ -52,13 +58,14 @@ export function VoiceMultiSelect({
                   ? `linear-gradient(135deg, ${accent}10 0%, ${accent}08 100%)`
                   : "#fff",
               }}>
+              {/* checkbox */}
               <div
                 className="h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-all"
                 style={{
-                  borderColor: checked ? accent : "#d1d5db",
-                  background: checked ? accent : "#fff",
+                  borderColor: isPaidOnly ? "#e5e7eb" : checked ? accent : "#d1d5db",
+                  background: isPaidOnly ? "#f3f4f6" : checked ? accent : "#fff",
                 }}>
-                {checked && (
+                {checked && !isPaidOnly && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
@@ -66,7 +73,9 @@ export function VoiceMultiSelect({
               </div>
               <div className="flex-1 min-w-0">
                 <span className="text-[11px] font-semibold text-gray-600">{voice.name}</span>
-                <span className="text-[10px] text-gray-400 ml-1.5">{voice.description}</span>
+                <span className="text-[10px] text-gray-400 ml-1.5">
+                  {isPaidOnly ? "付费音色，Free用户暂不可用" : voice.description}
+                </span>
               </div>
             </div>
           );
@@ -74,7 +83,7 @@ export function VoiceMultiSelect({
       </div>
 
       <p className="text-[10px] text-gray-350">
-        已选 {selectedIds.size}/{voices.length} 个音色
+        已选 {selectedIds.size} 个免费音色
       </p>
     </div>
   );

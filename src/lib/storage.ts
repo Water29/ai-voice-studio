@@ -27,7 +27,9 @@ export async function readHistory(): Promise<HistoryRecord[]> {
       const { list } = await import("@vercel/blob");
       const { blobs } = await list({ prefix: BLOB_KEY });
       if (blobs.length === 0) return [];
-      const res = await fetch(blobs[0].url);
+      const res = await fetch(blobs[0].url, {
+        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+      });
       const data: HistoryData = await res.json();
       return data.records;
     } catch (e) {

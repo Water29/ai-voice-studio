@@ -21,26 +21,26 @@ function hasBlob(): boolean {
 // 读取
 // ============================================
 export async function readHistory(): Promise<HistoryRecord[]> {
-  // Vercel + 有 Blob → 直接用 Blob URL + Token 下载
+  // Vercel + 有 Blob → 从私有 Blob 读取
   if (onVercel() && hasBlob()) {
-    const storeId = process.env.BLOB_STORE_ID;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    // 构造私有 Blob URL：https://<storeId>.private.blob.vercel-storage.com/history/data.json
-    const baseHost = storeId
-      ? `${storeId}.private.blob.vercel-storage.com`
-      : "private.blob.vercel-storage.com";
-    const blobUrl = `https://${baseHost}/history/data.json`;
-
-    const res = await fetch(blobUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      console.error(`[storage] Blob fetch 失败: ${res.status}, url=${blobUrl}`);
+    try {
+      const { list } = await import("@vercel/blob");
+      const all = await list();
+      // 找到 history/data.json
+      const hist = all.blobs.find((b: any) => b.pathname === "history/data.json");
+      if (!hist) {
+        console.warn(`[storage] 未找到 history/data.json，现有: ${all.blobs.map((b: any) => b.pathname).join(", ")}`);
+        return [];
+      }
+      // 用 downloadUrl 下载（私有 blob 的签名临时 URL）
+      const res = await fetch(hist.downloadUrl);
+      if (!res.ok) return [];
+      const data: HistoryData = await res.json();
+      return data.records;
+    } catch (e: any) {
+      console.error(`[storage] 异常: ${e.message}`);
       return [];
     }
-    const data: HistoryData = await res.json();
-    return data.records;
   }
 
   // Vercel + 无 Blob → 返回空（不尝试写本地文件）

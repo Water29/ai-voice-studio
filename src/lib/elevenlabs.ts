@@ -72,13 +72,13 @@ export async function generateSpeech(
   let audioUrl: string;
 
   if (onVercel() && hasBlob()) {
-    // Vercel Blob 存储
+    // Vercel Blob 私有存储 → /api/audio/ 代理
     const { put } = await import("@vercel/blob");
-    const blob = await put(`audio/${fileName}`, Buffer.from(audioBuffer), {
-      access: "public",
+    await put(`audio/${fileName}`, Buffer.from(audioBuffer), {
+      access: "private",
       contentType: "audio/mpeg",
     });
-    audioUrl = blob.url;
+    audioUrl = `/api/audio/${fileName}`;
   } else if (onVercel()) {
     // Vercel 无 Blob → 转 base64 data URL（临时方案，最大 5MB）
     const base64 = Buffer.from(audioBuffer).toString("base64");

@@ -82,7 +82,8 @@ export async function addRecord(record: HistoryRecord): Promise<void> {
       }
     } catch { /* 清理失败不影响写入 */ }
     await put(BLOB_KEY, JSON.stringify(data), {
-      access: "public",
+      access: "private",
+      allowOverwrite: true,
       contentType: "application/json",
     });
     return;
@@ -126,7 +127,9 @@ export async function deleteRecord(id: string): Promise<boolean> {
       for (const b of blobs) await (await import("@vercel/blob")).del(b.url);
     } catch { /* ignore */ }
     await put(BLOB_KEY, JSON.stringify(data), {
-      access: "public", contentType: "application/json",
+      access: "private",
+      allowOverwrite: true,
+      contentType: "application/json",
     });
     return true;
   }

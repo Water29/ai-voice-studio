@@ -21,18 +21,22 @@ function hasBlob(): boolean {
 // 读取
 // ============================================
 export async function readHistory(): Promise<HistoryRecord[]> {
-  // Vercel + 有 Blob → 从 Blob 读
+  // Vercel + 有 Blob → 直接用 Blob URL + Token 下载
   if (onVercel() && hasBlob()) {
-    const { list } = await import("@vercel/blob");
-    const { blobs } = await list({ prefix: BLOB_KEY });
-    if (blobs.length === 0) {
-      console.warn(`[storage] 未找到 prefix=${BLOB_KEY}`);
-      return [];
-    }
-    // 用 downloadUrl（已签名的临时URL）下载内容，无需额外认证
-    const res = await fetch(blobs[0].downloadUrl);
+    const storeId = process.env.BLOB_STORE_ID;
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    // 构造私有 Blob URL：https://<storeId>.private.blob.vercel-storage.com/history/data.json
+    const baseHost = storeId
+      ? `${storeId}.private.blob.vercel-storage.com`
+      : "private.blob.vercel-storage.com";
+    const blobUrl = `https://${baseHost}/history/data.json`;
+
+    const res = await fetch(blobUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
     if (!res.ok) {
-      console.error(`[storage] Blob fetch 失败: ${res.status}`);
+      console.error(`[storage] Blob fetch 失败: ${res.status}, url=${blobUrl}`);
       return [];
     }
     const data: HistoryData = await res.json();

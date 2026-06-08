@@ -81,10 +81,20 @@ export function HistoryPanel({ records, isLoading, onSelect, onDelete, onSearch 
                     <div className="w-0.5 self-stretch rounded-full shrink-0"
                       style={{ background: "linear-gradient(180deg, #b4a0d8 0%, #d8b0c0 100%)" }} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] text-gray-600 truncate leading-snug">{r.translatedText}</p>
+                      <p className="text-[11px] text-gray-600 truncate leading-snug">
+                        {r.translations?.[0]?.text || r.translatedText}
+                      </p>
                       <p className="mt-0.5 text-[10px] text-gray-400 truncate">{r.sourceText}</p>
                       <div className="mt-0.5 flex items-center gap-2">
-                        {r.voiceName && <span className="text-[10px] text-gray-400">🎤 {r.voiceName}</span>}
+                        {r.translations && r.translations.length > 0 && (
+                          <span className="text-[10px] text-gray-400">📝 {r.translations.length}版</span>
+                        )}
+                        {r.voiceResults && r.voiceResults.filter((v: any) => !v._error).length > 0 && (
+                          <span className="text-[10px] text-gray-400">
+                            🎤 {r.voiceResults.filter((v: any) => !v._error).length}音色
+                          </span>
+                        )}
+                        {r.voiceName && !r.voiceResults && <span className="text-[10px] text-gray-400">🎤 {r.voiceName}</span>}
                         <span className="text-[10px] text-gray-350">{fm(r.createdAt)}</span>
                       </div>
                     </div>

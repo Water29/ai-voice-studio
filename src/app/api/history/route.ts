@@ -32,17 +32,33 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as HistoryRecord;
+    const body = await request.json();
 
-    if (!body.id || !body.sourceText || !body.translatedText) {
+    if (!body.id || !body.sourceText) {
       return NextResponse.json(
-        { error: "缺少必填字段：id, sourceText, translatedText" },
+        { error: "缺少必填字段：id, sourceText" },
         { status: 400 }
       );
     }
 
-    await addRecord(body);
-    return NextResponse.json({ success: true, id: body.id });
+    // 兼容新旧格式：translations数组 或 translatedText字符串
+    const record = {
+      id: body.id,
+      sourceText: body.sourceText,
+      translatedText: body.translations?.[0]?.text || body.translatedText || "",
+      translationStyle: body.translations?.[0]?.style || body.translationStyle || "",
+      translations: body.translations || [],
+      voiceResults: body.voiceResults || [],
+      audioUrl: body.voiceResults?.[0]?.audioUrl || body.audioUrl || null,
+      voiceName: body.voiceResults?.[0]?.voiceName || body.voiceName || null,
+      voiceId: body.voiceId || null,
+      durationMs: body.voiceResults?.[0]?.durationMs || body.durationMs || null,
+      costUsd: 0,
+      createdAt: body.createdAt || new Date().toISOString(),
+    };
+
+    await addRecord(record);
+    return NextResponse.json({ success: true, id: record.id });
   } catch (error) {
     console.error("保存历史记录错误:", error);
     return NextResponse.json(

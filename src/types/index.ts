@@ -56,13 +56,15 @@ export interface HistoryRecord {
   id: string;
   sourceText: string;
   translatedText: string;
-  translationStyle: TranslationStyle;
+  translationStyle: string;
+  translations?: { text: string; style: string; label: string }[];
+  voiceResults?: { voiceName: string; audioUrl: string; durationMs: number; _error?: string }[];
   audioUrl: string | null;
   voiceName: string | null;
   voiceId: string | null;
   durationMs: number | null;
   costUsd: number;
-  createdAt: string;            // ISO 8601
+  createdAt: string;
 }
 
 /** 历史数据文件结构 */

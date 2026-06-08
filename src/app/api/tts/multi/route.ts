@@ -32,13 +32,18 @@ export async function POST(request: Request) {
         const { getRecord, addRecord } = await import("@/lib/storage");
         const existing = await getRecord(body.recordId);
         if (existing) {
+          // 合并旧语音结果 + 新语音结果（不覆盖不同翻译文本的语音）
+          const oldResults = (existing as any).voiceResults || [];
+          // 移除同文本的旧结果
+          const keptResults = oldResults.filter((r: any) => r.forText !== body.text);
+          const newResults = results.map((r: any) => ({
+            voiceName: r.voiceName, audioUrl: r.audioUrl,
+            durationMs: r.durationMs, _error: r._error || undefined,
+            forText: body.text, // 标记该语音属于哪个翻译文本
+          }));
           await addRecord({
             ...existing,
-            voiceForText: body.text, // 记录哪个翻译文本用于生成语音
-            voiceResults: results.map((r: any) => ({
-              voiceName: r.voiceName, audioUrl: r.audioUrl,
-              durationMs: r.durationMs, _error: r._error || undefined,
-            })),
+            voiceResults: [...keptResults, ...newResults],
           } as any);
         }
       } catch { /* ignore */ }

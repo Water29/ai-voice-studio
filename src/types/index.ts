@@ -59,7 +59,7 @@ export interface HistoryRecord {
   translationStyle: string;
   translations?: { text: string; style: string; label: string }[];
   voiceForText?: string;
-  voiceResults?: { voiceName: string; audioUrl: string; durationMs: number; _error?: string }[];
+  voiceResults?: { voiceName: string; audioUrl: string; durationMs: number; _error?: string; forText?: string }[];
   audioUrl: string | null;
   voiceName: string | null;
   voiceId: string | null;

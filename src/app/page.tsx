@@ -280,21 +280,29 @@ export default function Home() {
                 const ts = (r.translations || [{ text: r.translatedText, style: r.translationStyle, label: r.translationStyle }])
                   .map((t: any) => ({ translatedText: t.text, style: t.style, label: t.label, description: "", tokensUsed: 0, costUsd: 0 }));
                 setTranslations(ts); setPhase("translated");
-                // 按翻译文本匹配语音到正确的Tab
+                // 按 forText 将语音分组到对应翻译Tab
                 if (r.voiceResults?.length && r.voiceResults.some((v: any) => v.audioUrl)) {
                   const m = new Map<number, VoiceItem[]>();
-                  const voiceText = r.voiceForText || r.translations?.[0]?.text || r.translatedText || "";
-                  // 找到匹配的翻译Tab索引
-                  let matchIdx = 0;
-                  if (voiceText) {
-                    const found = ts.findIndex((t: any) => t.translatedText.trim() === voiceText.trim());
-                    if (found >= 0) matchIdx = found;
+                  let firstMatchIdx = 0;
+                  // 按 forText 分组
+                  const grouped: Record<string, any[]> = {};
+                  for (const v of r.voiceResults) {
+                    if (!v.audioUrl) continue;
+                    const key = v.forText || r.voiceForText || r.translations?.[0]?.text || "";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(v);
                   }
-                  m.set(matchIdx, r.voiceResults.map((v: any) => ({
-                    voiceId: "", voiceName: v.voiceName, audioUrl: v.audioUrl, durationMs: v.durationMs
-                  })));
+                  // 匹配到翻译Tab
+                  for (const [text, voices] of Object.entries(grouped)) {
+                    const idx = ts.findIndex((t: any) => t.translatedText.trim() === text.trim());
+                    const tabIdx = idx >= 0 ? idx : 0;
+                    if (firstMatchIdx === 0 && idx >= 0) firstMatchIdx = idx;
+                    m.set(tabIdx, voices.map((v: any) => ({
+                      voiceId: "", voiceName: v.voiceName, audioUrl: v.audioUrl, durationMs: v.durationMs
+                    })));
+                  }
                   setVoiceMap(m);
-                  setActiveTransTab(matchIdx); // 自动切换到有语音的Tab
+                  setActiveTransTab(firstMatchIdx);
                 } else {
                   setActiveTransTab(0);
                 }

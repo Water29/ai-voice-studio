@@ -21,16 +21,32 @@ export async function GET(request: Request) {
       : await readHistory();
 
     // 始终附带诊断信息
-    return NextResponse.json({
-      records,
-      _diag: {
-        vercel: !!process.env.VERCEL,
-        hasBlob: !!process.env.BLOB_READ_WRITE_TOKEN,
-        hasDeepSeek: !!process.env.DEEPSEEK_API_KEY,
-        hasElevenLabs: !!process.env.ELEVENLABS_API_KEY,
-        envKeys: Object.keys(process.env).filter(k => k.includes('BLOB') || k.includes('VERCEL')),
-      },
-    });
+    const diag: any = {
+      vercel: !!process.env.VERCEL,
+      hasBlob: !!process.env.BLOB_READ_WRITE_TOKEN,
+    };
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const { list } = await import("@vercel/blob");
+        const all = await list();
+        diag.totalBlobs = all.blobs.length;
+        diag.blobPaths = all.blobs.map((b: any) => b.pathname);
+        const hist = await list({ prefix: "history/data.json" });
+        if (hist.blobs.length > 0) {
+          diag.foundHistory = true;
+          const res = await fetch(hist.blobs[0].downloadUrl);
+          diag.downloadOk = res.ok;
+          diag.downloadStatus = res.status;
+        } else {
+          diag.foundHistory = false;
+        }
+      } catch (e: any) {
+        diag.blobError = e.message;
+      }
+    }
+
+    return NextResponse.json({ records, _diag: diag });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "未知";
     return NextResponse.json(

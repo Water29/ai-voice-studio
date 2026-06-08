@@ -5,40 +5,32 @@ import { useState } from "react";
 interface ScriptInputProps {
   onGenerate: (text: string) => void;
   isGenerating: boolean;
+  disabled?: boolean;
 }
 
-export function ScriptInput({ onGenerate, isGenerating }: ScriptInputProps) {
+export function ScriptInput({ onGenerate, isGenerating, disabled = false }: ScriptInputProps) {
   const [text, setText] = useState("");
   const charCount = text.length;
   const maxChars = 5000;
-
-  const handleGenerate = () => {
-    if (text.trim() && !isGenerating) onGenerate(text.trim());
-  };
+  const locked = isGenerating || disabled;
 
   return (
     <div className="space-y-3">
       <div>
         <h2 className="text-sm font-semibold text-gray-600">中文口播文案</h2>
         <p className="mt-0.5 text-xs text-gray-400">
-          AI 将自动判断风格，生成 3 个版本的英文翻译
+          {disabled ? "语音生成中，请等待完成..." : "AI 将自动判断风格，生成 3 个版本的英文翻译"}
         </p>
       </div>
 
-      {/* 输入框 — 加高 + 可见边框 + 字数在下方 */}
       <div>
         <textarea
           value={text} onChange={(e) => setText(e.target.value)}
           placeholder="例如：这款机器人能帮你自动修剪草坪，省时省力，你值得拥有！"
-          rows={6} maxLength={maxChars}
-          disabled={isGenerating}
+          rows={6} maxLength={maxChars} disabled={locked}
           className="w-full rounded-xl bg-white px-4 py-3 text-sm text-gray-600 placeholder:text-gray-350 focus:outline-none focus:ring-2 focus:ring-purple-200/50 disabled:opacity-50 resize-none transition-all"
-          style={{
-            border: "1.5px solid #d0c4e8",
-            boxShadow: "inset 0 1px 3px rgba(120,100,160,0.04)",
-          }}
+          style={{ border: "1.5px solid #d0c4e8", boxShadow: "inset 0 1px 3px rgba(120,100,160,0.04)" }}
         />
-        {/* 字数统计 — 移到输入框下方 */}
         <div className="flex justify-end mt-1">
           <span className={`text-xs ${charCount > maxChars * 0.9 ? "text-red-400" : "text-gray-350"}`}>
             {charCount} / {maxChars}
@@ -47,14 +39,15 @@ export function ScriptInput({ onGenerate, isGenerating }: ScriptInputProps) {
       </div>
 
       <button
-        onClick={handleGenerate} disabled={!text.trim() || isGenerating}
+        onClick={() => { if (text.trim() && !locked) onGenerate(text.trim()); }}
+        disabled={!text.trim() || locked}
         className="w-full h-10 text-sm font-semibold rounded-xl text-white transition-all disabled:cursor-not-allowed"
         style={{
-          background: !text.trim()
+          background: !text.trim() || locked
             ? "linear-gradient(135deg, #c8bce8 0%, #b0b8d8 100%)"
             : "linear-gradient(135deg, #9b87d0 0%, #8498c8 100%)",
-          boxShadow: text.trim() ? "0 2px 10px rgba(130,145,190,0.35)" : "none",
-          opacity: !text.trim() || isGenerating ? 0.55 : 1,
+          boxShadow: text.trim() && !locked ? "0 2px 10px rgba(130,145,190,0.35)" : "none",
+          opacity: !text.trim() || locked ? 0.55 : 1,
         }}>
         {isGenerating ? (
           <span className="flex items-center justify-center gap-2">

@@ -123,7 +123,7 @@ export default function Home() {
   const handleReset = useCallback(() => {
     setPhase("idle"); setError(null); setSourceText("");
     setTranslations([]); setVoiceMap(new Map()); setVoiceGenTab(null);
-    setActiveTransTab(0); setActiveSentenceIdx(null);
+    setActiveTransTab(0); setActiveSentenceIdx(null); setRecordId("");
   }, []);
 
   const activeTrans = translations[activeTransTab];
@@ -281,6 +281,7 @@ export default function Home() {
             <HistoryPanel records={historyStore.records} isLoading={historyStore.isLoading}
               onSelect={(r: any) => {
                 setSourceText(r.sourceText || "");
+                setRecordId(r.id || ""); // 记住当前记录的ID用于更新而非新增
                 const ts = (r.translations || [{ text: r.translatedText, style: r.translationStyle, label: r.translationStyle }])
                   .map((t: any) => ({ translatedText: t.text, style: t.style, label: t.label, description: "", tokensUsed: 0, costUsd: 0 }));
                 setTranslations(ts); setPhase("translated");

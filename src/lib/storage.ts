@@ -26,16 +26,13 @@ export async function readHistory(): Promise<HistoryRecord[]> {
     const { list } = await import("@vercel/blob");
     const { blobs } = await list({ prefix: BLOB_KEY });
     if (blobs.length === 0) {
-      // 诊断：检查是否完全没有 blob
-      const all = await list();
-      console.warn(`[storage] 未找到 prefix=${BLOB_KEY}，共 ${all.blobs.length} 个 blob`);
+      console.warn(`[storage] 未找到 prefix=${BLOB_KEY}`);
       return [];
     }
-    const res = await fetch(blobs[0].url, {
-      headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-    });
+    // 用 downloadUrl（已签名的临时URL）下载内容，无需额外认证
+    const res = await fetch(blobs[0].downloadUrl);
     if (!res.ok) {
-      console.error(`[storage] Blob fetch 失败: ${res.status} ${res.statusText}`);
+      console.error(`[storage] Blob fetch 失败: ${res.status}`);
       return [];
     }
     const data: HistoryData = await res.json();

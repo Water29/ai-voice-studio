@@ -2,299 +2,287 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { ScriptInput } from "@/components/ScriptInput";
-import { TranslationResult } from "@/components/TranslationResult";
-import { VoicePlayer } from "@/components/VoicePlayer";
+import { TranslationVersions } from "@/components/TranslationVersions";
 import { WaveformPlayer } from "@/components/WaveformPlayer";
-import { VoiceSelector } from "@/components/VoiceSelector";
+import { VoiceMultiSelect } from "@/components/VoiceMultiSelect";
 import { CostDisplay } from "@/components/CostDisplay";
 import { HistoryPanel } from "@/components/HistoryPanel";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useVoice } from "@/hooks/useVoice";
 import { useHistory } from "@/hooks/useHistory";
 import { calculateCosts } from "@/lib/cost";
-import type {
-  TranslationStyle,
-  HistoryRecord,
-  TranslateResponse,
-  TTSResponse,
-  CostBreakdown,
-} from "@/types";
+import type { TTSResponse, CostBreakdown, Voice } from "@/types";
 
-type WorkflowState = "idle" | "translating" | "generating" | "done";
+interface TransVersion {
+  translatedText: string; style: string; tokensUsed: number; costUsd: number;
+  description: string; label: string;
+}
+
+interface VoiceResult { voiceId: string; voiceName: string; audioUrl: string; durationMs: number; _error?: string; }
+
+// 预置音色
+const VOICES: Voice[] = [
+  { voiceId: "pNInz6obpgDQGcFmaJgB", name: "Adam", label: "Adam — Deep American Male", category: "male", description: "深沉美式男声，适合广告促销" },
+  { voiceId: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", label: "Rachel — Warm American Female", category: "female", description: "温暖美国女声，适合旁白教程" },
+  { voiceId: "EXAVITQu4vr4xnSDxMaL", name: "Bella", label: "Bella — Young American Female", category: "female", description: "年轻活泼，适合TikTok社媒" },
+  { voiceId: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", label: "Sam — Calm American Male", category: "male", description: "沉稳平静，适合企业介绍" },
+  { voiceId: "AZnzlk1XvdvUeBnXmlld", name: "Domi", label: "Domi — Energetic Female", category: "female", description: "高能量女声，适合促销导购" },
+  { voiceId: "MF3mGyEYCl7XYWbV9V6O", name: "Emily", label: "Emily — Soft American Female", category: "female", description: "温柔亲切，适合生活类内容" },
+];
 
 export default function Home() {
-  const translation = useTranslation();
-  const voice = useVoice();
   const historyStore = useHistory();
 
-  const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
+  // 流程状态
+  const [step, setStep] = useState<"input" | "translated" | "voiced">("input");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // 翻译结果
   const [sourceText, setSourceText] = useState("");
-  const [translationResult, setTranslationResult] =
-    useState<TranslateResponse | null>(null);
-  const [ttsResult, setTTSResult] = useState<TTSResponse | null>(null);
-  const [multiTtsResults, setMultiTtsResults] = useState<(TTSResponse & { _error?: string })[]>([]);
+  const [versions, setVersions] = useState<TransVersion[]>([]);
+  const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
+
+  // 音色
+  const [selectedVoiceIds, setSelectedVoiceIds] = useState<Set<string>>(new Set(["pNInz6obpgDQGcFmaJgB"]));
+  const [voiceResults, setVoiceResults] = useState<VoiceResult[]>([]);
+
+  // 成本
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
-  const [voiceRecommendation, setVoiceRecommendation] = useState<{
-    voiceName: string; style: string; score: number; reason: string;
-  } | null>(null);
 
-  useEffect(() => {
-    voice.loadVoices();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { historyStore.loadHistory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleGenerate = useCallback(
-    async (text: string, style: TranslationStyle) => {
-      setSourceText(text);
-      setWorkflowState("translating");
-      setTranslationResult(null);
-      setTTSResult(null);
+  // ============ 翻译流程 ============
+  const handleTranslate = useCallback(async (text: string) => {
+    setSourceText(text);
+    setStep("input");
+    setIsProcessing(true);
+    setVoiceResults([]);
+    setCostBreakdown(null);
 
-      const translateResult = await translation.translate(text, style);
-      if (!translateResult) {
-        setWorkflowState("idle");
-        return;
+    try {
+      const res = await fetch("/api/translate/multi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (res.ok && data.translations) {
+        setVersions(data.translations);
+        setStep("translated");
       }
-      setTranslationResult(translateResult);
+    } catch { /* error handled by UI */ }
+    finally { setIsProcessing(false); }
+  }, []);
 
-      setWorkflowState("generating");
-      const vid = voice.selectedVoice?.voiceId ?? "pNInz6obpgDQGcFmaJgB";
-      const ttsR = await voice.generate(translateResult.translatedText, vid);
-      if (ttsR) setTTSResult(ttsR);
+  // 重新翻译单个版本
+  const handleRegenerate = useCallback(async (index: number) => {
+    const v = versions[index];
+    if (!v || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sourceText, style: v.style }),
+      });
+      const data = await res.json();
+      if (res.ok && data.translatedText) {
+        setVersions(prev => prev.map((ver, i) =>
+          i === index ? { ...ver, translatedText: data.translatedText, costUsd: data.costUsd } : ver
+        ));
+      }
+    } catch { /* ignore */ }
+    finally { setIsProcessing(false); }
+  }, [versions, sourceText, isProcessing]);
 
-      // Phase2: 并发生成多个音色（通过 API）
-      const otherVoices = voice.voices
-        .filter((v) => v.voiceId !== vid)
-        .slice(0, 3)
-        .map((v) => v.voiceId);
-      if (otherVoices.length > 0) {
+  // ============ 语音生成 ============
+  const handleGenerateVoices = useCallback(async () => {
+    if (selectedVoiceIds.size === 0 || !versions[selectedVersionIdx]?.translatedText) return;
+    setIsProcessing(true);
+    const text = versions[selectedVersionIdx].translatedText;
+    const ids = [...selectedVoiceIds];
+
+    try {
+      const res = await fetch("/api/tts/multi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceIds: ids }),
+      });
+      const data = await res.json();
+      if (res.ok && data.results) {
+        const results: VoiceResult[] = data.results.map((r: TTSResponse & { _error?: string }, i: number) => ({
+          voiceId: ids[i],
+          voiceName: r.voiceName,
+          audioUrl: r.audioUrl,
+          durationMs: r.durationMs,
+          _error: r._error,
+        }) as VoiceResult);
+        setVoiceResults(results.filter(r => !r._error));
+        setStep("voiced");
+
+        // 成本
+        const costs = calculateCosts(sourceText.length, text.length);
+        setCostBreakdown(costs);
+
+        // 保存历史
         try {
-          const res = await fetch("/api/tts/multi", {
+          await fetch("/api/history", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: translateResult.translatedText, voiceIds: otherVoices }),
+            body: JSON.stringify({
+              id: `rec_${Date.now()}`,
+              sourceText, translatedText: text,
+              translationStyle: versions[selectedVersionIdx].style,
+              audioUrl: results[0]?.audioUrl ?? null,
+              voiceName: results[0]?.voiceName ?? null,
+              voiceId: ids[0],
+              durationMs: results[0]?.durationMs ?? null,
+              costUsd: costs.totalCost,
+              createdAt: new Date().toISOString(),
+            }),
           });
-          const data = await res.json();
-          if (res.ok && data.results) setMultiTtsResults(data.results);
-        } catch { /* 多音色生成失败不影响主流程 */ }
+          historyStore.refresh();
+        } catch { /* ignore */ }
       }
+    } catch { /* ignore */ }
+    finally { setIsProcessing(false); }
+  }, [selectedVoiceIds, versions, selectedVersionIdx, sourceText, historyStore]);
 
-      // Phase2: AI 推荐音色
-      try {
-        const recRes = await fetch("/api/voices/recommend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        if (recRes.ok) {
-          const recData = await recRes.json();
-          setVoiceRecommendation({
-            voiceName: recData.recommended.name,
-            style: recData.style,
-            score: recData.matchScore,
-            reason: recData.description,
-          });
-        }
-      } catch { /* 推荐失败不影响主流程 */ }
-
-      // Phase2: 计算成本
-      const costs = calculateCosts(text.length, translateResult.translatedText.length);
-      setCostBreakdown({ ...costs, totalCost: costs.totalCost + (ttsR?.costUsd ?? 0) * Math.max(1, otherVoices.length + 1) });
-
-      setWorkflowState("done");
-
-      // 保存历史
-      const rid = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      try {
-        await fetch("/api/history", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: rid, sourceText: text,
-            translatedText: translateResult.translatedText,
-            translationStyle: style,
-            audioUrl: ttsR?.audioUrl ?? null,
-            voiceName: ttsR?.voiceName ?? voice.selectedVoice?.name ?? null,
-            voiceId: vid, durationMs: ttsR?.durationMs ?? null,
-            costUsd: (translateResult.costUsd ?? 0) + (ttsR?.costUsd ?? 0),
-            createdAt: new Date().toISOString(),
-          }),
-        });
-        historyStore.refresh();
-      } catch { console.warn("保存失败"); }
-    },
-    [translation, voice, historyStore]
-  );
-
-  const handleSelectHistory = useCallback(
-    (r: HistoryRecord) => {
-      setSourceText(r.sourceText);
-      translation.reset(); voice.reset();
-      setTranslationResult({ translatedText: r.translatedText, style: r.translationStyle, tokensUsed: 0, costUsd: 0 });
-      if (r.audioUrl) setTTSResult({ audioUrl: r.audioUrl, durationMs: r.durationMs ?? 0, voiceName: r.voiceName ?? "", costUsd: 0 });
-      setWorkflowState("done");
-    },
-    [translation, voice]
-  );
-
-  const handleDeleteHistory = useCallback(
-    async (id: string) => { await historyStore.deleteItem(id); },
-    [historyStore]
-  );
-
-  const handleSearchHistory = useCallback(
-    (q: string) => historyStore.loadHistory(q),
-    [historyStore]
-  );
+  const handleToggleVoice = useCallback((id: string) => {
+    setSelectedVoiceIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleReset = useCallback(() => {
-    setSourceText(""); setTranslationResult(null); setTTSResult(null);
-    setWorkflowState("idle"); translation.reset(); voice.reset();
-  }, [translation, voice]);
+    setStep("input"); setSourceText(""); setVersions([]);
+    setVoiceResults([]); setCostBreakdown(null); setSelectedVersionIdx(0);
+  }, []);
 
-  const handleDownload = useCallback(() => {
-    if (ttsResult?.audioUrl) {
-      const a = document.createElement("a");
-      a.href = ttsResult.audioUrl; a.download = `ai-voice-${Date.now()}.mp3`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const handleSelectHistory = useCallback((r: any) => {
+    setSourceText(r.sourceText);
+    setVersions([{
+      translatedText: r.translatedText, style: r.translationStyle,
+      tokensUsed: 0, costUsd: 0, label: r.translationStyle, description: ""
+    }]);
+    setStep("translated");
+    if (r.audioUrl) {
+      setVoiceResults([{ voiceId: r.voiceId, voiceName: r.voiceName, audioUrl: r.audioUrl, durationMs: r.durationMs }]);
+      setStep("voiced");
     }
-  }, [ttsResult]);
-
-  const isProc = workflowState === "translating" || workflowState === "generating";
+  }, []);
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       {/* Header */}
-      <header
-        className="mb-6 flex items-center justify-between rounded-2xl px-5 py-4 text-white shadow-md"
-        style={{ background: "linear-gradient(135deg, #9b87d0 0%, #8498c8 35%, #90b0d8 65%, #b090c8 100%)" }}
-      >
+      <header className="mb-5 flex items-center justify-between rounded-2xl px-5 py-3.5 text-white shadow-md"
+        style={{ background: "linear-gradient(135deg, #9b87d0 0%, #8498c8 35%, #90b0d8 65%, #b090c8 100%)" }}>
         <div>
           <h1 className="text-lg font-bold drop-shadow-sm">🎙️ AI Voice Studio</h1>
           <p className="mt-0.5 text-xs text-white/65">DeepSeek 翻译 · ElevenLabs 配音</p>
         </div>
-        {workflowState !== "idle" && (
-          <button onClick={handleReset}
-            className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 transition-all">
+        {step !== "input" && (
+          <button onClick={handleReset} className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 transition-all">
             + 新建
           </button>
         )}
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          {/* 输入卡片 */}
+      {/* Main Layout: 2 columns */}
+      <div className="grid gap-5 lg:grid-cols-5">
+        {/* ===== Left: 翻译主区 (3 cols) ===== */}
+        <div className="space-y-4 lg:col-span-3">
+          {/* Input */}
           <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-            <ScriptInput onGenerate={handleGenerate} isGenerating={isProc} />
+            <ScriptInput onGenerate={handleTranslate} isGenerating={isProcessing && step === "input"} />
           </section>
 
-          {/* Phase2: 音色选择器 */}
+          {/* Translation Versions */}
+          {versions.length > 0 && (
+            <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+              <TranslationVersions
+                versions={versions}
+                onRegenerate={handleRegenerate}
+                isRegenerating={isProcessing}
+              />
+              {/* 选择使用的版本 */}
+              {step === "translated" && (
+                <div className="mt-4 pt-3 border-t border-purple-100">
+                  <p className="text-[11px] text-gray-400 mb-2">选择用于语音生成的版本：</p>
+                  <div className="flex gap-2">
+                    {versions.filter(v => v.translatedText).map((v, i) => (
+                      <button key={i} onClick={() => setSelectedVersionIdx(i)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                          selectedVersionIdx === i
+                            ? "bg-purple-50 border-purple-300 text-purple-600 font-medium"
+                            : "bg-white border-gray-200 text-gray-500 hover:border-purple-200"
+                        }`}>
+                        {v.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Voice Results — Waveform players */}
+          {voiceResults.length > 0 && (
+            <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+              <h2 className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                🎤 语音预览
+              </h2>
+              <div className="space-y-4">
+                {voiceResults.map(r => (
+                  <WaveformPlayer key={r.voiceId} audioUrl={r.audioUrl} voiceName={r.voiceName}
+                    onDownload={() => {
+                      const a = document.createElement("a");
+                      a.href = r.audioUrl; a.download = `ai-voice-${r.voiceName}.mp3`;
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    }} />
+                ))}
+              </div>
+
+              {/* 成本 */}
+              {costBreakdown && (
+                <div className="mt-4 pt-3 border-t border-purple-100">
+                  <CostDisplay cost={{ ...costBreakdown, totalCost: costBreakdown.totalCost * voiceResults.length }} />
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+
+        {/* ===== Right: 音色 + 历史 (2 cols) ===== */}
+        <div className="space-y-4 lg:col-span-2">
+          {/* Voice Multi-Select */}
           <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-            <VoiceSelector
-              voices={voice.voices}
-              selectedId={voice.selectedVoice?.voiceId ?? null}
-              results={multiTtsResults}
-              isGenerating={isProc}
-              recommendation={voiceRecommendation}
-              onSelect={(v) => voice.selectVoice(v)}
-              onGenerateAll={async (ids) => {
-                if (!translationResult?.translatedText) return;
-                try {
-                  const res = await fetch("/api/tts/multi", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: translationResult.translatedText, voiceIds: ids }),
-                  });
-                  const data = await res.json();
-                  if (res.ok && data.results) setMultiTtsResults(data.results);
-                } catch { /* ignore */ }
-              }}
+            <VoiceMultiSelect
+              voices={VOICES}
+              selectedIds={selectedVoiceIds}
+              onToggle={handleToggleVoice}
+              onSelectAll={() => setSelectedVoiceIds(new Set(VOICES.map(v => v.voiceId)))}
+              onDeselectAll={() => setSelectedVoiceIds(new Set())}
+              onGenerate={handleGenerateVoices}
+              isGenerating={isProcessing && step === "translated"}
+              disabled={step === "input" || versions.length === 0}
             />
           </section>
 
-          <div className="min-h-[120px] space-y-4">
-            {/* 翻译中 */}
-            {workflowState === "translating" && (
-              <div className="rounded-xl border border-purple-200/50 p-4"
-                style={{ background: "linear-gradient(135deg, #ede5f8 0%, #e8e0f5 100%)" }}>
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-300 border-t-purple-500" />
-                  <span className="text-sm text-purple-500 font-medium">DeepSeek 翻译中...</span>
-                </div>
-              </div>
-            )}
-            {/* 翻译结果 */}
-            {(workflowState === "generating" || workflowState === "done") && translationResult && (
-              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">英文翻译</h2>
-                <TranslationResult
-                  translatedText={translationResult.translatedText}
-                  style={translationResult.style}
-                  costUsd={translationResult.costUsd}
-                  onRegenerate={workflowState === "done" ? () => handleGenerate(sourceText, translationResult.style) : undefined}
-                />
-              </section>
-            )}
-            {/* 语音生成中 */}
-            {workflowState === "generating" && (
-              <div className="rounded-xl border border-violet-200/50 p-4"
-                style={{ background: "linear-gradient(135deg, #ede5f8 0%, #f8e0ee 100%)" }}>
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-300 border-t-violet-500" />
-                  <span className="text-sm text-violet-500 font-medium">ElevenLabs 语音生成中...</span>
-                </div>
-              </div>
-            )}
-            {/* 语音结果 */}
-            {ttsResult && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">语音预览</h2>
-                <WaveformPlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} onDownload={handleDownload} />
-                {/* 简洁播放器作为备选 */}
-                <details className="mt-2">
-                  <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-purple-400">简洁播放器</summary>
-                  <div className="mt-2"><VoicePlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} durationMs={ttsResult.durationMs} onDownload={handleDownload} /></div>
-                </details>
-              </section>
-            )}
-
-            {/* Phase2: 多音色试听列表 */}
-            {multiTtsResults.length > 0 && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">其他音色试听</h2>
-                <div className="space-y-2">
-                  {multiTtsResults.filter(r => !r._error).map(r => (
-                    <VoicePlayer key={r.voiceName} audioUrl={r.audioUrl} voiceName={r.voiceName} durationMs={r.durationMs} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Phase2: 成本明细 */}
-            {costBreakdown && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
-                <CostDisplay cost={costBreakdown} />
-              </section>
-            )}
-            {/* 空闲 */}
-            {workflowState === "idle" && (
-              <div className="rounded-xl border border-dashed border-purple-200/50 p-8 text-center"
-                style={{ background: "linear-gradient(180deg, #ede5f8 0%, #f8e0ee 100%)" }}>
-                <p className="text-sm text-purple-400/70">输入中文文案，选择风格，开始生成 ✨</p>
-              </div>
-            )}
-          </div>
+          {/* History */}
+          <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+            <HistoryPanel
+              records={historyStore.records} isLoading={historyStore.isLoading}
+              onSelect={handleSelectHistory}
+              onDelete={(id) => historyStore.deleteItem(id)}
+              onSearch={(q) => historyStore.loadHistory(q)} />
+          </section>
         </div>
-
-        <aside className="lg:col-span-1">
-          <div className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5 lg:sticky lg:top-6">
-            <HistoryPanel records={historyStore.records} isLoading={historyStore.isLoading}
-              onSelect={handleSelectHistory} onDelete={handleDeleteHistory} onSearch={handleSearchHistory} />
-          </div>
-        </aside>
       </div>
 
       <footer className="mt-8 pb-6 text-center">
-        <p className="text-xs text-purple-300/80">Powered by{" "}
+        <p className="text-xs text-purple-300/80">
+          Powered by{" "}
           <a href="https://platform.deepseek.com" target="_blank" rel="noopener noreferrer"
             className="text-purple-400 hover:text-purple-500 transition-colors">DeepSeek</a>{" "}+{" "}
           <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer"

@@ -4,15 +4,19 @@ import { useState, useCallback, useEffect } from "react";
 import { ScriptInput } from "@/components/ScriptInput";
 import { TranslationResult } from "@/components/TranslationResult";
 import { VoicePlayer } from "@/components/VoicePlayer";
+import { VoiceSelector } from "@/components/VoiceSelector";
+import { CostDisplay } from "@/components/CostDisplay";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useVoice } from "@/hooks/useVoice";
 import { useHistory } from "@/hooks/useHistory";
+import { calculateCosts } from "@/lib/cost";
 import type {
   TranslationStyle,
   HistoryRecord,
   TranslateResponse,
   TTSResponse,
+  CostBreakdown,
 } from "@/types";
 
 type WorkflowState = "idle" | "translating" | "generating" | "done";
@@ -27,6 +31,8 @@ export default function Home() {
   const [translationResult, setTranslationResult] =
     useState<TranslateResponse | null>(null);
   const [ttsResult, setTTSResult] = useState<TTSResponse | null>(null);
+  const [multiTtsResults, setMultiTtsResults] = useState<(TTSResponse & { _error?: string })[]>([]);
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
 
   useEffect(() => {
     voice.loadVoices();
@@ -50,6 +56,28 @@ export default function Home() {
       const vid = voice.selectedVoice?.voiceId ?? "pNInz6obpgDQGcFmaJgB";
       const ttsR = await voice.generate(translateResult.translatedText, vid);
       if (ttsR) setTTSResult(ttsR);
+
+      // Phase2: 并发生成多个音色（通过 API）
+      const otherVoices = voice.voices
+        .filter((v) => v.voiceId !== vid)
+        .slice(0, 3)
+        .map((v) => v.voiceId);
+      if (otherVoices.length > 0) {
+        try {
+          const res = await fetch("/api/tts/multi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: translateResult.translatedText, voiceIds: otherVoices }),
+          });
+          const data = await res.json();
+          if (res.ok && data.results) setMultiTtsResults(data.results);
+        } catch { /* 多音色生成失败不影响主流程 */ }
+      }
+
+      // Phase2: 计算成本
+      const costs = calculateCosts(text.length, translateResult.translatedText.length);
+      setCostBreakdown({ ...costs, totalCost: costs.totalCost + (ttsR?.costUsd ?? 0) * Math.max(1, otherVoices.length + 1) });
+
       setWorkflowState("done");
 
       // 保存历史
@@ -137,6 +165,29 @@ export default function Home() {
             <ScriptInput onGenerate={handleGenerate} isGenerating={isProc} />
           </section>
 
+          {/* Phase2: 音色选择器 */}
+          <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+            <VoiceSelector
+              voices={voice.voices}
+              selectedId={voice.selectedVoice?.voiceId ?? null}
+              results={multiTtsResults}
+              isGenerating={isProc}
+              onSelect={(v) => voice.selectVoice(v)}
+              onGenerateAll={async (ids) => {
+                if (!translationResult?.translatedText) return;
+                try {
+                  const res = await fetch("/api/tts/multi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: translationResult.translatedText, voiceIds: ids }),
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.results) setMultiTtsResults(data.results);
+                } catch { /* ignore */ }
+              }}
+            />
+          </section>
+
           <div className="min-h-[120px] space-y-4">
             {/* 翻译中 */}
             {workflowState === "translating" && (
@@ -175,6 +226,23 @@ export default function Home() {
               <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
                 <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">语音预览</h2>
                 <VoicePlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} durationMs={ttsResult.durationMs} onDownload={handleDownload} />
+
+                {/* Phase2: 多音色试听列表 */}
+                {multiTtsResults.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-purple-100 space-y-2">
+                    <p className="text-[10px] text-gray-400">其他音色试听：</p>
+                    {multiTtsResults.filter(r => !r._error).map(r => (
+                      <VoicePlayer key={r.voiceName} audioUrl={r.audioUrl} voiceName={r.voiceName} durationMs={r.durationMs} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Phase2: 成本明细 */}
+            {costBreakdown && workflowState === "done" && (
+              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+                <CostDisplay cost={costBreakdown} />
               </section>
             )}
             {/* 空闲 */}

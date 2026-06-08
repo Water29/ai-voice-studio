@@ -18,7 +18,7 @@ const VOICES: Voice[] = [
 ];
 
 interface TransItem { translatedText: string; style: string; label: string; description: string; tokensUsed: number; costUsd: number; }
-interface VoiceItem { voiceId: string; voiceName: string; audioUrl: string; durationMs: number; }
+interface VoiceItem { voiceId: string; voiceName: string; audioUrl: string; durationMs: number; _error?: string; }
 
 type Phase = "idle" | "translating" | "translated";
 
@@ -75,13 +75,24 @@ export default function Home() {
       });
       const data = await res.json();
       if (res.ok && data.results) {
-        const results: VoiceItem[] = data.results
-          .filter((r: any) => !r._error && r.audioUrl)
-          .map((r: any) => ({ voiceId: nameToId[r.voiceName] || ids[0], voiceName: r.voiceName, audioUrl: r.audioUrl, durationMs: r.durationMs }));
+        // 保留所有结果（含失败的），让用户看到哪些成功哪些失败
+        const results: VoiceItem[] = data.results.map((r: any) => ({
+          voiceId: nameToId[r.voiceName] || ids[ids.indexOf(r.voiceName)] || ids[0],
+          voiceName: r.voiceName,
+          audioUrl: r.audioUrl || "",
+          durationMs: r.durationMs || 0,
+          _error: r._error || undefined,
+        }));
 
-        if (results.length === 0) { setError("所有音色生成失败，请检查账户"); }
-        else {
+        const successCount = results.filter(r => !r._error).length;
+        if (successCount === 0) {
+          const reasons = results.map(r => `${r.voiceName}: ${r._error?.split('message":"')[1]?.split('"')[0] || r._error}`).join("; ");
+          setError(`所有音色生成失败: ${reasons}`);
+        } else {
           setVoiceMap(prev => { const m = new Map(prev); m.set(tabIndex, results); return m; });
+          if (successCount < results.length) {
+            setError(`${successCount}/${results.length} 个音色生成成功，部分失败（可能是账户限制）`);
+          }
         }
 
         // 保存历史（完整信息）
@@ -197,17 +208,26 @@ export default function Home() {
                     <div className="mt-3 space-y-3">
                       <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">🎤 语音预览</h3>
                       {activeVoices.map((v, i) => (
-                        <details key={v.voiceId} open={i === 0} className="group">
-                          <summary className="cursor-pointer text-xs text-gray-500 hover:text-purple-500 transition-colors py-1">
-                            🎤 {v.voiceName} <span className="text-gray-350 text-[10px] ml-1">{v.durationMs > 0 ? `${(v.durationMs/1000).toFixed(0)}s` : ""}</span>
-                          </summary>
-                          <div className="mt-1.5">
-                            <WaveformPlayer audioUrl={v.audioUrl} voiceName={v.voiceName}
-                              onDownload={() => { const a = document.createElement("a"); a.href = v.audioUrl; a.download = `voice-${v.voiceName}.mp3`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }} />
-                          </div>
-                        </details>
+                        <div key={v.voiceId || i}>
+                          {v._error ? (
+                            <div className="rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2 flex items-center gap-2">
+                              <span className="text-rose-400 text-xs">⚠️</span>
+                              <span className="text-xs text-rose-500">🎤 {v.voiceName}</span>
+                              <span className="text-[10px] text-rose-400 truncate flex-1">{v._error.substring(0,80)}</span>
+                            </div>
+                          ) : (
+                            <details className="group" open={i === 0}>
+                              <summary className="cursor-pointer text-xs text-gray-500 hover:text-purple-500 transition-colors py-1">
+                                🎤 {v.voiceName} <span className="text-gray-350 text-[10px] ml-1">{v.durationMs > 0 ? `${(v.durationMs/1000).toFixed(0)}s` : ""}</span>
+                              </summary>
+                              <div className="mt-1.5">
+                                <WaveformPlayer audioUrl={v.audioUrl} voiceName={v.voiceName}
+                                  onDownload={() => { const a = document.createElement("a"); a.href = v.audioUrl; a.download = `voice-${v.voiceName}.mp3`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }} />
+                              </div>
+                            </details>
+                          )}
+                        </div>
                       ))}
-                      {/* 为当前 tab 重新生成 */}
                       <button onClick={() => handleGenerateVoices(activeTransTab)} disabled={isLocked}
                         className="text-[10px] text-gray-400 hover:text-purple-500 transition-colors disabled:opacity-50">🔄 重新生成语音</button>
                     </div>

@@ -60,20 +60,8 @@ export default function Home() {
         if (valid.length === 0) { setError("AI 未能生成有效翻译，请重试"); setPhase("idle"); return; }
         setTranslations(valid); setActiveTransTab(0); setPhase("translated");
 
-        // 保存翻译历史
-        try {
-          await fetch("/api/history", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: rid,
-              sourceText: text,
-              translations: valid.map((t: any) => ({ text: t.translatedText, style: t.style, label: t.label })),
-              voiceResults: [],
-              createdAt: new Date().toISOString(),
-            }),
-          });
-          historyStore.refresh();
-        } catch { /* ignore */ }
+        // 历史已在 API 中自动保存
+        historyStore.refresh();
       } else { setError(data.error || "翻译失败"); setPhase("idle"); }
     } catch { setError("网络错误"); setPhase("idle"); }
   }, []);
@@ -91,7 +79,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/tts/multi", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trans.translatedText, voiceIds: ids }),
+        body: JSON.stringify({ text: trans.translatedText, voiceIds: ids, recordId }),
       });
       const data = await res.json();
       if (res.ok && data.results) {
@@ -116,20 +104,8 @@ export default function Home() {
         // 始终保存到 voiceMap（含失败的）
         setVoiceMap(prev => { const m = new Map(prev); m.set(tabIndex, results); return m; });
 
-        // 保存历史（POST upsert，含失败信息）
-        try {
-          await fetch("/api/history", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: recordId,
-              sourceText,
-              translations: translations.map(t => ({ text: t.translatedText, style: t.style, label: t.label })),
-              voiceResults: results.map(r => ({ voiceName: r.voiceName, audioUrl: r.audioUrl, durationMs: r.durationMs, _error: r._error || undefined })),
-              createdAt: new Date().toISOString(),
-            }),
-          });
-          historyStore.refresh();
-        } catch { /* ignore */ }
+        // 历史已在 API 中自动更新
+        historyStore.refresh();
       } else { setError(data.error || "语音生成失败"); }
     } catch { setError("语音生成出错"); }
     finally { setVoiceGenTab(null); }

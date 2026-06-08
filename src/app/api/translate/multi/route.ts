@@ -70,6 +70,24 @@ export async function POST(request: Request) {
       };
     });
 
+    // 自动保存历史
+    try {
+      const { addRecord } = await import("@/lib/storage");
+      await addRecord({
+        id: `rec_${Date.now()}_${Math.random().toString(36).substr(2,6)}`,
+        sourceText: body.text,
+        translatedText: translations[0]?.translatedText || "",
+        translationStyle: translations[0]?.style || "",
+        translations: translations.filter((t: any) => t.translatedText).map((t: any) => ({
+          text: t.translatedText, style: t.style, label: t.label,
+        })),
+        voiceResults: [],
+        audioUrl: null, voiceName: null, voiceId: null,
+        durationMs: null, costUsd: 0,
+        createdAt: new Date().toISOString(),
+      } as any);
+    } catch { /* 历史保存失败不影响翻译 */ }
+
     return NextResponse.json({ translations, analyzedStyle: bestStyle });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "未知错误";

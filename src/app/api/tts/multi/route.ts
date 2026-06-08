@@ -26,6 +26,23 @@ export async function POST(request: Request) {
 
     const results = await generateMultiSpeech(body.text, body.voiceIds);
 
+    // 更新历史记录（如果提供了 recordId）
+    if (body.recordId) {
+      try {
+        const { getRecord, addRecord } = await import("@/lib/storage");
+        const existing = await getRecord(body.recordId);
+        if (existing) {
+          await addRecord({
+            ...existing,
+            voiceResults: results.map((r: any) => ({
+              voiceName: r.voiceName, audioUrl: r.audioUrl,
+              durationMs: r.durationMs, _error: r._error || undefined,
+            })),
+          } as any);
+        }
+      } catch { /* ignore */ }
+    }
+
     return NextResponse.json({ results });
   } catch (error) {
     console.error("多音色生成错误:", error);

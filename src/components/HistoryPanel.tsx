@@ -85,7 +85,7 @@ export function HistoryPanel({ records, isLoading, onSelect, onDelete, onSearch 
                         {r.translations?.[0]?.text || r.translatedText}
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-400 truncate">{r.sourceText}</p>
-                      <div className="mt-0.5 flex items-center gap-2">
+                      <div className="mt-0.5 flex items-center gap-2 flex-wrap">
                         {r.translations && r.translations.length > 0 && (
                           <span className="text-[10px] text-gray-400">📝 {r.translations.length}版</span>
                         )}
@@ -94,6 +94,11 @@ export function HistoryPanel({ records, isLoading, onSelect, onDelete, onSearch 
                             🎤 {r.voiceResults.filter((v: any) => !v._error).length}音色
                           </span>
                         )}
+                        {/* 显示语音所属的翻译风格 */}
+                        {r.voiceForText && r.translations && (() => {
+                          const match = r.translations.find((t: any) => t.text?.trim() === r.voiceForText?.trim());
+                          return match ? <span className="text-[10px] text-purple-400 font-medium">{match.label}</span> : null;
+                        })()}
                         {r.voiceName && !r.voiceResults && <span className="text-[10px] text-gray-400">🎤 {r.voiceName}</span>}
                         <span className="text-[10px] text-gray-350">{fm(r.createdAt)}</span>
                       </div>

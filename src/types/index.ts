@@ -58,6 +58,7 @@ export interface HistoryRecord {
   translatedText: string;
   translationStyle: string;
   translations?: { text: string; style: string; label: string }[];
+  voiceForText?: string;
   voiceResults?: { voiceName: string; audioUrl: string; durationMs: number; _error?: string }[];
   audioUrl: string | null;
   voiceName: string | null;

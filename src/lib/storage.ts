@@ -1,95 +1,81 @@
 // ============================================
-// 存储工具 — Vercel Blob / 本地 JSON 双模式
+// 存储工具 — 每条记录独立JSON文件
+// Vercel Blob: history/{id}.json
+// 本地:       data/history/{id}.json
 // ============================================
 
-import type { HistoryData, HistoryRecord } from "@/types";
+import fs from "fs/promises";
+import path from "path";
+import type { HistoryRecord } from "@/types";
 
 const MAX_RECORDS = 100;
-const BLOB_KEY = "history/data.json";
 
-/** 是否在 Vercel Serverless 环境（不管有没有连 Blob） */
-function onVercel(): boolean {
-  return !!process.env.VERCEL;
-}
+function onVercel(): boolean { return !!process.env.VERCEL; }
+function hasBlob(): boolean { return !!process.env.BLOB_READ_WRITE_TOKEN; }
 
-/** 是否已连接 Vercel Blob */
-function hasBlob(): boolean {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
-}
+function blobKey(id: string): string { return `history/${id}.json`; }
 
 // ============================================
-// 读取
+// 读取全部
 // ============================================
 export async function readHistory(): Promise<HistoryRecord[]> {
-  // Vercel + 有 Blob → 从私有 Blob 读取
   if (onVercel() && hasBlob()) {
     try {
       const { list } = await import("@vercel/blob");
-      const all = await list();
-      const hist = all.blobs.find((b: any) => b.pathname === "history/data.json");
-      if (!hist) return [];
-      // url + Bearer Token (本地测试通过 ✅)
+      const all = await list({ prefix: "history/" });
+      if (all.blobs.length === 0) return [];
       const token = process.env.BLOB_READ_WRITE_TOKEN!;
-      const res = await fetch(hist.url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        throw new Error(`fetch ${hist.url}: ${res.status}`);
+      const records: HistoryRecord[] = [];
+      for (const blob of all.blobs) {
+        try {
+          const res = await fetch(blob.url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) records.push(await res.json());
+        } catch { /* skip corrupt blob */ }
       }
-      const data: HistoryData = await res.json();
-      return data.records;
+      return records.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
     } catch (e: any) {
-      console.error("[storage] 读取失败:", e.message);
+      console.error("[storage] readHistory:", e.message);
       return [];
     }
   }
 
-  // Vercel + 无 Blob → 返回空（不尝试写本地文件）
-  if (onVercel()) {
-    return [];
-  }
+  if (onVercel()) return [];
 
-  // 本地开发
+  // 本地：扫描 data/history/ 目录
   try {
-    const fs = require("fs/promises");
-    const path = require("path");
-    const file = path.join(process.cwd(), "data", "history.json");
-    const dir = path.dirname(file);
+    const dir = path.join(process.cwd(), "data", "history");
     await fs.mkdir(dir, { recursive: true });
-    try { await fs.access(file); } catch {
-      await fs.writeFile(file, JSON.stringify({ records: [] }), "utf-8");
+    const files = await fs.readdir(dir);
+    const records: HistoryRecord[] = [];
+    for (const f of files) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const raw = await fs.readFile(path.join(dir, f), "utf-8");
+        records.push(JSON.parse(raw));
+      } catch { /* skip */ }
     }
-    const raw = await fs.readFile(file, "utf-8");
-    return (JSON.parse(raw) as HistoryData).records;
-  } catch (e) {
-    console.error("本地读取历史失败:", e);
+    return records.sort((a: any, b: any) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch (e: any) {
+    console.error("[storage] local readHistory:", e.message);
     return [];
   }
 }
 
 // ============================================
-// 写入（upsert）
+// 写入（单文件，无并发问题）
 // ============================================
 export async function addRecord(record: HistoryRecord): Promise<void> {
-  const records = await readHistory();
-  const existingIdx = records.findIndex((r) => r.id === record.id);
-  if (existingIdx >= 0) records[existingIdx] = record;
-  else records.unshift(record);
-  while (records.length > MAX_RECORDS) records.pop();
+  const json = JSON.stringify(record);
 
-  const data: HistoryData = { records };
-
-  // Vercel + Blob
   if (onVercel() && hasBlob()) {
-    const { put, list } = await import("@vercel/blob");
-    // 清理旧 blob
-    try {
-      const { blobs } = await list({ prefix: BLOB_KEY });
-      for (const b of blobs) {
-        await (await import("@vercel/blob")).del(b.url);
-      }
-    } catch { /* 清理失败不影响写入 */ }
-    await put(BLOB_KEY, JSON.stringify(data), {
+    const { put } = await import("@vercel/blob");
+    await put(blobKey(record.id), json, {
       access: "private",
       allowOverwrite: true,
       contentType: "application/json",
@@ -97,18 +83,15 @@ export async function addRecord(record: HistoryRecord): Promise<void> {
     return;
   }
 
-  // Vercel 无 Blob → 不写
   if (onVercel()) return;
 
   // 本地
   try {
-    const fs = require("fs/promises");
-    const path = require("path");
-    const file = path.join(process.cwd(), "data", "history.json");
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.error("本地写入历史失败:", e);
+    const dir = path.join(process.cwd(), "data", "history");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, `${record.id}.json`), json, "utf-8");
+  } catch (e: any) {
+    console.error("[storage] local addRecord:", e.message);
   }
 }
 
@@ -116,43 +99,50 @@ export async function addRecord(record: HistoryRecord): Promise<void> {
 // 查询 / 删除
 // ============================================
 export async function getRecord(id: string): Promise<HistoryRecord | null> {
-  const records = await readHistory();
-  return records.find((r) => r.id === id) ?? null;
+  if (onVercel() && hasBlob()) {
+    try {
+      const { list } = await import("@vercel/blob");
+      const all = await list({ prefix: blobKey(id) });
+      if (all.blobs.length === 0) return null;
+      const token = process.env.BLOB_READ_WRITE_TOKEN!;
+      const res = await fetch(all.blobs[0].url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }
+
+  if (onVercel()) return null;
+
+  try {
+    const file = path.join(process.cwd(), "data", "history", `${id}.json`);
+    return JSON.parse(await fs.readFile(file, "utf-8"));
+  } catch { return null; }
 }
 
 export async function deleteRecord(id: string): Promise<boolean> {
-  const records = await readHistory();
-  const idx = records.findIndex((r) => r.id === id);
-  if (idx === -1) return false;
-  records.splice(idx, 1);
-
-  const data: HistoryData = { records };
-
   if (onVercel() && hasBlob()) {
-    const { put, list } = await import("@vercel/blob");
     try {
-      const { blobs } = await list({ prefix: BLOB_KEY });
-      for (const b of blobs) await (await import("@vercel/blob")).del(b.url);
-    } catch { /* ignore */ }
-    await put(BLOB_KEY, JSON.stringify(data), {
-      access: "private",
-      allowOverwrite: true,
-      contentType: "application/json",
-    });
-    return true;
+      const { list } = await import("@vercel/blob");
+      const all = await list({ prefix: blobKey(id) });
+      for (const b of all.blobs) {
+        await (await import("@vercel/blob")).del(b.url);
+      }
+      return true;
+    } catch (e: any) {
+      console.error("[storage] deleteRecord:", e.message);
+      return false;
+    }
   }
 
-  if (onVercel()) return true; // 无 Blob 时假装成功
+  if (onVercel()) return true;
 
   try {
-    const fs = require("fs/promises");
-    const path = require("path");
-    const file = path.join(process.cwd(), "data", "history.json");
-    await fs.writeFile(file, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.error("本地删除历史失败:", e);
-  }
-  return true;
+    const file = path.join(process.cwd(), "data", "history", `${id}.json`);
+    await fs.unlink(file);
+    return true;
+  } catch { return false; }
 }
 
 export async function searchHistory(query: string): Promise<HistoryRecord[]> {

@@ -27,15 +27,15 @@ export default function RootLayout({
         className={`${inter.className} min-h-screen antialiased`}
         style={{
           background: `
-            radial-gradient(ellipse 80% 60% at 50% -10%, #ede9fe 0%, transparent 50%),
-            radial-gradient(ellipse 60% 50% at 90% 80%, #fce7f3 0%, transparent 50%),
-            radial-gradient(ellipse 50% 40% at 10% 40%, #e0e7ff 0%, transparent 50%),
-            linear-gradient(180deg, #f5f3ff 0%, #fff5f9 30%, #faf5ff 60%, #f5f3ff 100%)
+            radial-gradient(ellipse 80% 50% at 50% -15%, #e0d5f5 0%, transparent 55%),
+            radial-gradient(ellipse 55% 45% at 85% 75%, #f5d8e5 0%, transparent 55%),
+            radial-gradient(ellipse 45% 35% at 10% 35%, #d5dff5 0%, transparent 55%),
+            linear-gradient(180deg, #ede5f8 0%, #faf0f5 25%, #f5effa 55%, #ede5f8 100%)
           `,
           backgroundAttachment: "fixed",
         }}
       >
-        <div className="h-0.5 bg-gradient-to-r from-purple-300 via-violet-200 to-pink-300" />
+        <div className="h-0.5 bg-gradient-to-r from-purple-400 via-violet-300 to-pink-400" />
         {children}
       </body>
     </html>

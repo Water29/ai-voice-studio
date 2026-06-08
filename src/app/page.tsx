@@ -24,7 +24,6 @@ export default function Home() {
 
   const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
   const [sourceText, setSourceText] = useState("");
-  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   const [translationResult, setTranslationResult] =
     useState<TranslateResponse | null>(null);
   const [ttsResult, setTTSResult] = useState<TTSResponse | null>(null);
@@ -48,279 +47,160 @@ export default function Home() {
       setTranslationResult(translateResult);
 
       setWorkflowState("generating");
-      const selectedVoiceId =
-        voice.selectedVoice?.voiceId ?? "pNInz6obpgDQGcFmaJgB";
-
-      const ttsResult = await voice.generate(
-        translateResult.translatedText,
-        selectedVoiceId
-      );
-      if (ttsResult) setTTSResult(ttsResult);
+      const vid = voice.selectedVoice?.voiceId ?? "pNInz6obpgDQGcFmaJgB";
+      const ttsR = await voice.generate(translateResult.translatedText, vid);
+      if (ttsR) setTTSResult(ttsR);
       setWorkflowState("done");
 
-      const recordId = `rec_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 8)}`;
-      const record: HistoryRecord = {
-        id: recordId,
-        sourceText: text,
-        translatedText: translateResult.translatedText,
-        translationStyle: style,
-        audioUrl: ttsResult?.audioUrl ?? null,
-        voiceName: ttsResult?.voiceName ?? voice.selectedVoice?.name ?? null,
-        voiceId: selectedVoiceId,
-        durationMs: ttsResult?.durationMs ?? null,
-        costUsd:
-          (translateResult.costUsd ?? 0) + (ttsResult?.costUsd ?? 0),
-        createdAt: new Date().toISOString(),
-      };
-
+      // 保存历史
+      const rid = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       try {
         await fetch("/api/history", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(record),
+          body: JSON.stringify({
+            id: rid, sourceText: text,
+            translatedText: translateResult.translatedText,
+            translationStyle: style,
+            audioUrl: ttsR?.audioUrl ?? null,
+            voiceName: ttsR?.voiceName ?? voice.selectedVoice?.name ?? null,
+            voiceId: vid, durationMs: ttsR?.durationMs ?? null,
+            costUsd: (translateResult.costUsd ?? 0) + (ttsR?.costUsd ?? 0),
+            createdAt: new Date().toISOString(),
+          }),
         });
-        setCurrentRecordId(recordId);
         historyStore.refresh();
-      } catch {
-        console.warn("保存历史记录失败");
-      }
+      } catch { console.warn("保存失败"); }
     },
     [translation, voice, historyStore]
   );
 
   const handleSelectHistory = useCallback(
-    (record: HistoryRecord) => {
-      setSourceText(record.sourceText);
-      translation.reset();
-      voice.reset();
-      setTranslationResult({
-        translatedText: record.translatedText,
-        style: record.translationStyle,
-        tokensUsed: 0,
-        costUsd: 0,
-      });
-      if (record.audioUrl) {
-        setTTSResult({
-          audioUrl: record.audioUrl,
-          durationMs: record.durationMs ?? 0,
-          voiceName: record.voiceName ?? "",
-          costUsd: 0,
-        });
-      }
+    (r: HistoryRecord) => {
+      setSourceText(r.sourceText);
+      translation.reset(); voice.reset();
+      setTranslationResult({ translatedText: r.translatedText, style: r.translationStyle, tokensUsed: 0, costUsd: 0 });
+      if (r.audioUrl) setTTSResult({ audioUrl: r.audioUrl, durationMs: r.durationMs ?? 0, voiceName: r.voiceName ?? "", costUsd: 0 });
       setWorkflowState("done");
-      setCurrentRecordId(record.id);
     },
     [translation, voice]
   );
 
   const handleDeleteHistory = useCallback(
-    async (id: string) => {
-      const success = await historyStore.deleteItem(id);
-      if (success && id === currentRecordId) handleReset();
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [historyStore, currentRecordId]
+    async (id: string) => { await historyStore.deleteItem(id); },
+    [historyStore]
   );
 
   const handleSearchHistory = useCallback(
-    (query: string) => historyStore.loadHistory(query),
+    (q: string) => historyStore.loadHistory(q),
     [historyStore]
   );
 
   const handleReset = useCallback(() => {
-    setSourceText("");
-    setTranslationResult(null);
-    setTTSResult(null);
-    setWorkflowState("idle");
-    setCurrentRecordId(null);
-    translation.reset();
-    voice.reset();
+    setSourceText(""); setTranslationResult(null); setTTSResult(null);
+    setWorkflowState("idle"); translation.reset(); voice.reset();
   }, [translation, voice]);
 
   const handleDownload = useCallback(() => {
     if (ttsResult?.audioUrl) {
-      const link = document.createElement("a");
-      link.href = ttsResult.audioUrl;
-      link.download = `ai-voice-${Date.now()}.mp3`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = ttsResult.audioUrl; a.download = `ai-voice-${Date.now()}.mp3`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
   }, [ttsResult]);
 
-  const isProcessing =
-    workflowState === "translating" || workflowState === "generating";
+  const isProc = workflowState === "translating" || workflowState === "generating";
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      {/* ======== Header ======== */}
+      {/* Header */}
       <header
-        className="mb-6 flex items-center justify-between rounded-2xl px-5 py-4 text-white shadow-sm"
-        style={{
-          background:
-            "linear-gradient(135deg, #b4a5e8 0%, #9baddb 30%, #a8c5e8 60%, #c9b8e8 100%)",
-        }}
+        className="mb-6 flex items-center justify-between rounded-2xl px-5 py-4 text-white shadow-md"
+        style={{ background: "linear-gradient(135deg, #9b87d0 0%, #8498c8 35%, #90b0d8 65%, #b090c8 100%)" }}
       >
         <div>
-          <h1 className="text-lg font-bold tracking-tight drop-shadow-sm">
-            🎙️ AI Voice Studio
-          </h1>
-          <p className="mt-0.5 text-xs text-white/65">
-            DeepSeek 翻译 · ElevenLabs 配音 · 英文口播一键生成
-          </p>
+          <h1 className="text-lg font-bold drop-shadow-sm">🎙️ AI Voice Studio</h1>
+          <p className="mt-0.5 text-xs text-white/65">DeepSeek 翻译 · ElevenLabs 配音</p>
         </div>
         {workflowState !== "idle" && (
-          <button
-            onClick={handleReset}
-            className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 backdrop-blur-sm transition-all"
-          >
+          <button onClick={handleReset}
+            className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 transition-all">
             + 新建
           </button>
         )}
       </header>
 
-      {/* ======== Main ======== */}
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {/* 输入卡片 */}
-          <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
-            <ScriptInput
-              onGenerate={handleGenerate}
-              isGenerating={isProcessing}
-            />
+          <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+            <ScriptInput onGenerate={handleGenerate} isGenerating={isProc} />
           </section>
 
-          {/* 结果区域 */}
-          <div className="min-h-[140px] space-y-4">
+          <div className="min-h-[120px] space-y-4">
             {/* 翻译中 */}
             {workflowState === "translating" && (
-              <div
-                className="rounded-xl border border-purple-100/40 p-4"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
-                }}
-              >
+              <div className="rounded-xl border border-purple-200/50 p-4"
+                style={{ background: "linear-gradient(135deg, #ede5f8 0%, #e8e0f5 100%)" }}>
                 <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-400" />
-                  <span className="text-sm text-purple-400/80 font-medium">
-                    DeepSeek 翻译中...
-                  </span>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-300 border-t-purple-500" />
+                  <span className="text-sm text-purple-500 font-medium">DeepSeek 翻译中...</span>
                 </div>
               </div>
             )}
-
             {/* 翻译结果 */}
-            {(workflowState === "generating" ||
-              workflowState === "done") &&
-              translationResult && (
-                <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
-                  <h2 className="mb-2 text-[11px] font-semibold text-purple-300 uppercase tracking-wider">
-                    英文翻译
-                  </h2>
-                  <TranslationResult
-                    translatedText={translationResult.translatedText}
-                    style={translationResult.style}
-                    costUsd={translationResult.costUsd}
-                    onRegenerate={
-                      workflowState === "done"
-                        ? () =>
-                            handleGenerate(
-                              sourceText,
-                              translationResult.style
-                            )
-                        : undefined
-                    }
-                  />
-                </section>
-              )}
-
-            {/* 语音生成中 */}
-            {workflowState === "generating" && (
-              <div
-                className="rounded-xl border border-violet-100/40 p-4"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #f5f3ff 0%, #fdf2f8 100%)",
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-200 border-t-violet-400" />
-                  <span className="text-sm text-violet-400/80 font-medium">
-                    ElevenLabs 语音生成中...
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* 语音结果 */}
-            {ttsResult && workflowState === "done" && (
-              <section className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5">
-                <h2 className="mb-2 text-[11px] font-semibold text-purple-300 uppercase tracking-wider">
-                  语音预览
-                </h2>
-                <VoicePlayer
-                  audioUrl={ttsResult.audioUrl}
-                  voiceName={ttsResult.voiceName}
-                  durationMs={ttsResult.durationMs}
-                  onDownload={handleDownload}
+            {(workflowState === "generating" || workflowState === "done") && translationResult && (
+              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">英文翻译</h2>
+                <TranslationResult
+                  translatedText={translationResult.translatedText}
+                  style={translationResult.style}
+                  costUsd={translationResult.costUsd}
+                  onRegenerate={workflowState === "done" ? () => handleGenerate(sourceText, translationResult.style) : undefined}
                 />
               </section>
             )}
-
+            {/* 语音生成中 */}
+            {workflowState === "generating" && (
+              <div className="rounded-xl border border-violet-200/50 p-4"
+                style={{ background: "linear-gradient(135deg, #ede5f8 0%, #f8e0ee 100%)" }}>
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-300 border-t-violet-500" />
+                  <span className="text-sm text-violet-500 font-medium">ElevenLabs 语音生成中...</span>
+                </div>
+              </div>
+            )}
+            {/* 语音结果 */}
+            {ttsResult && workflowState === "done" && (
+              <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
+                <h2 className="mb-2 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">语音预览</h2>
+                <VoicePlayer audioUrl={ttsResult.audioUrl} voiceName={ttsResult.voiceName} durationMs={ttsResult.durationMs} onDownload={handleDownload} />
+              </section>
+            )}
             {/* 空闲 */}
             {workflowState === "idle" && (
-              <div
-                className="rounded-xl border border-dashed border-purple-200/40 p-8 text-center"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #faf5ff 0%, #fdf2f8 100%)",
-                }}
-              >
-                <p className="text-sm text-purple-300/70">
-                  输入中文文案，选择翻译风格，开始生成 ✨
-                </p>
+              <div className="rounded-xl border border-dashed border-purple-200/50 p-8 text-center"
+                style={{ background: "linear-gradient(180deg, #ede5f8 0%, #f8e0ee 100%)" }}>
+                <p className="text-sm text-purple-400/70">输入中文文案，选择风格，开始生成 ✨</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* 历史 */}
         <aside className="lg:col-span-1">
-          <div className="rounded-2xl border border-purple-100/50 bg-white/70 shadow-sm p-5 lg:sticky lg:top-6">
-            <HistoryPanel
-              records={historyStore.records}
-              isLoading={historyStore.isLoading}
-              onSelect={handleSelectHistory}
-              onDelete={handleDeleteHistory}
-              onSearch={handleSearchHistory}
-            />
+          <div className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5 lg:sticky lg:top-6">
+            <HistoryPanel records={historyStore.records} isLoading={historyStore.isLoading}
+              onSelect={handleSelectHistory} onDelete={handleDeleteHistory} onSearch={handleSearchHistory} />
           </div>
         </aside>
       </div>
 
       <footer className="mt-8 pb-6 text-center">
-        <p className="text-xs text-purple-200/70">
-          Powered by{" "}
-          <a
-            href="https://platform.deepseek.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-300 hover:text-purple-400 transition-colors"
-          >
-            DeepSeek
-          </a>{" "}
-          +{" "}
-          <a
-            href="https://elevenlabs.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-300 hover:text-purple-400 transition-colors"
-          >
-            ElevenLabs
-          </a>
+        <p className="text-xs text-purple-300/80">Powered by{" "}
+          <a href="https://platform.deepseek.com" target="_blank" rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-500 transition-colors">DeepSeek</a>{" "}+{" "}
+          <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-500 transition-colors">ElevenLabs</a>
         </p>
       </footer>
     </div>

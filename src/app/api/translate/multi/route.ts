@@ -1,6 +1,5 @@
 // ============================================
 // POST /api/translate/multi — AI 自动生成 3 版本翻译
-// AI 自动判断文本适合的风格，生成3个版本
 // ============================================
 
 import { NextResponse } from "next/server";
@@ -16,14 +15,24 @@ const STYLE_DESC: Record<TranslationStyle, { label: string; desc: string }> = {
   sales:     { label: "美式带货", desc: "高能量促销，适合产品推荐" },
 };
 
-/** 根据 AI 分析结果选择最佳3种风格 */
-function pickStyles(analyzedStyle: string): TranslationStyle[] {
-  // 总是包含 tiktok（基础风格），然后根据分析选择另外2个
+/** AI 分析结果 → TranslationStyle 映射 */
+const AI_STYLE_MAP: Record<string, TranslationStyle> = {
+  advertisement: "sales",
+  storytelling: "tiktok",
+  tutorial: "professional",
+  news: "professional",
+  casual_vlog: "casual",
+};
+
+/**
+ * 根据 AI 分析结果选出3种风格：
+ * 1个主推荐 + 2个补充
+ */
+function pickStyles(analyzed: string): TranslationStyle[] {
   const all: TranslationStyle[] = ["tiktok", "professional", "casual", "sales"];
-  // 把分析出的风格排在最前面，然后补充其他
-  const ordered = all.filter(s => s !== analyzedStyle);
-  const primary = (analyzedStyle as TranslationStyle) || "tiktok";
-  return [primary, ordered[0], ordered[1]];
+  const primary = AI_STYLE_MAP[analyzed] || "tiktok";
+  const rest = all.filter(s => s !== primary);
+  return [primary, rest[0], rest[1]];
 }
 
 export async function POST(request: Request) {
@@ -33,22 +42,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "缺少参数 text" }, { status: 400 });
     }
 
-    // Step 1: AI 分析文本适合什么风格
+    // AI 分析文本风格
     let bestStyle = "tiktok";
     try {
       const analysis = await analyzeTextStyle(body.text);
       bestStyle = analysis.style || "tiktok";
-    } catch { /* 降级使用 tiktok */ }
+    } catch { /* 降级 */ }
 
-    // Step 2: 选出3种最合适的风格
+    // 选出3种风格
     const styles = pickStyles(bestStyle);
 
-    // Step 3: 并行翻译
+    // 并行翻译
     const results = await Promise.allSettled(
       styles.map(s => translate(body.text, s))
     );
 
-    // Step 4: 组装响应
+    // 组装响应
     const translations = results.map((r, i) => {
       const style = styles[i];
       const info = STYLE_DESC[style];
@@ -57,17 +66,14 @@ export async function POST(request: Request) {
       }
       return {
         translatedText: "", style, tokensUsed: 0, costUsd: 0,
-        description: info.desc, label: info.label,
-        _error: "翻译失败",
+        description: info.desc, label: info.label, _error: "翻译失败",
       };
     });
 
-    return NextResponse.json({
-      translations,
-      analyzedStyle: bestStyle,
-    });
+    return NextResponse.json({ translations, analyzedStyle: bestStyle });
   } catch (error) {
-    console.error("多版本翻译错误:", error);
-    return NextResponse.json({ error: "翻译失败" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : "未知错误";
+    console.error("多版本翻译错误:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

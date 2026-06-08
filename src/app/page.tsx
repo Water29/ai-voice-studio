@@ -33,6 +33,7 @@ export default function Home() {
 
   // ---- 状态 ----
   const [phase, setPhase] = useState<Phase>("idle");
+  const [error, setError] = useState<string | null>(null);
   const [sourceText, setSourceText] = useState("");
   const [selectedVoiceIds, setSelectedVoiceIds] = useState<Set<string>>(
     new Set(["pNInz6obpgDQGcFmaJgB"])
@@ -50,6 +51,7 @@ export default function Home() {
     setPhase("translating");
     setTranslations([]);
     setVoiceResults([]);
+    setError(null);
 
     try {
       const res = await fetch("/api/translate/multi", {
@@ -60,13 +62,20 @@ export default function Home() {
       const data = await res.json();
       if (res.ok && data.translations) {
         const valid = data.translations.filter((t: any) => t.translatedText);
+        if (valid.length === 0) {
+          setError("AI 未能生成有效翻译，请重试");
+          setPhase("idle");
+          return;
+        }
         setTranslations(valid);
         setActiveTransTab(0);
         setPhase("translated");
       } else {
+        setError(data.error || "翻译失败，请检查 API Key 是否正确配置");
         setPhase("idle");
       }
     } catch {
+      setError("网络错误，请检查后端服务是否运行");
       setPhase("idle");
     }
   }, []);
@@ -138,7 +147,7 @@ export default function Home() {
 
   // ============ 重置 ============
   const handleReset = useCallback(() => {
-    setPhase("idle"); setSourceText(""); setTranslations([]);
+    setPhase("idle"); setError(null); setSourceText(""); setTranslations([]);
     setVoiceResults([]); setActiveTransTab(0); setActiveVoiceTab(0);
   }, []);
 
@@ -166,6 +175,19 @@ export default function Home() {
           {/* 输入 + 翻译按钮 */}
           <section className="rounded-2xl border border-purple-200/60 bg-white/75 shadow-sm p-5">
             <ScriptInput onGenerate={handleTranslate} isGenerating={phase === "translating"} />
+
+            {/* 错误提示 */}
+            {error && (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 flex items-start gap-2">
+                <span className="text-rose-400 shrink-0 mt-0.5">⚠️</span>
+                <div>
+                  <p className="text-xs text-rose-600 font-medium">出错了</p>
+                  <p className="text-[11px] text-rose-500 mt-0.5">{error}</p>
+                </div>
+                <button onClick={() => setError(null)}
+                  className="ml-auto text-rose-400 hover:text-rose-500 text-xs shrink-0">✕</button>
+              </div>
+            )}
 
             {/* 翻译中 loading */}
             {phase === "translating" && (

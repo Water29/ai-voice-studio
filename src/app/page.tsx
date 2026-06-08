@@ -87,7 +87,12 @@ export default function Home() {
 
     setPhase("generating");
     setVoiceResults([]);
+    setError(null);
     const ids = [...selectedVoiceIds];
+
+    // voiceName → voiceId 映射
+    const nameToId: Record<string, string> = {};
+    for (const v of VOICES) nameToId[v.name] = v.voiceId;
 
     try {
       const res = await fetch("/api/tts/multi", {
@@ -100,11 +105,18 @@ export default function Home() {
         const results: VoiceItem[] = data.results
           .filter((r: any) => !r._error && r.audioUrl)
           .map((r: any) => ({
-            voiceId: ids.find((id: string) => r.voiceName === VOICES.find(v => v.voiceId === id)?.name) || ids[0],
+            voiceId: nameToId[r.voiceName] || ids[0],
             voiceName: r.voiceName,
             audioUrl: r.audioUrl,
             durationMs: r.durationMs,
           }));
+
+        if (results.length === 0) {
+          setError("所有音色生成失败，请检查 ElevenLabs 账户余额");
+          setPhase("translated");
+          return;
+        }
+
         setVoiceResults(results);
         setActiveVoiceTab(0);
         setPhase("done");
@@ -129,12 +141,15 @@ export default function Home() {
           });
           historyStore.refresh();
         } catch { /* ignore */ }
+      } else {
+        setError(data.error || "语音生成失败");
+        setPhase("translated");
       }
-    } catch { /* ignore */ }
-    finally {
-      if (phase === "generating") setPhase("translated");
+    } catch {
+      setError("语音生成出错，请重试");
+      setPhase("translated");
     }
-  }, [translations, activeTransTab, selectedVoiceIds, sourceText, historyStore, phase]);
+  }, [translations, activeTransTab, selectedVoiceIds, sourceText, historyStore]);
 
   // ============ 音色切换 ============
   const handleToggleVoice = useCallback((id: string) => {

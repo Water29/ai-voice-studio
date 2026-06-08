@@ -7,7 +7,10 @@ import type { TTSResponse, Voice } from "@/types";
 
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io";
 
-function isVercel(): boolean {
+function onVercel(): boolean {
+  return !!process.env.VERCEL;
+}
+function hasBlob(): boolean {
   return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
@@ -68,7 +71,7 @@ export async function generateSpeech(
 
   let audioUrl: string;
 
-  if (isVercel()) {
+  if (onVercel() && hasBlob()) {
     // Vercel Blob 存储
     const { put } = await import("@vercel/blob");
     const blob = await put(`audio/${fileName}`, Buffer.from(audioBuffer), {
@@ -76,6 +79,10 @@ export async function generateSpeech(
       contentType: "audio/mpeg",
     });
     audioUrl = blob.url;
+  } else if (onVercel()) {
+    // Vercel 无 Blob → 转 base64 data URL（临时方案，最大 5MB）
+    const base64 = Buffer.from(audioBuffer).toString("base64");
+    audioUrl = `data:audio/mpeg;base64,${base64}`;
   } else {
     // 本地文件存储
     const fs = await import("fs/promises");

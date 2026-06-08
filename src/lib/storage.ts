@@ -46,15 +46,21 @@ export async function getRecord(id: string): Promise<HistoryRecord | null> {
 }
 
 /**
- * 添加新记录
+ * 添加或更新记录（按 ID 去重）
  */
 export async function addRecord(record: HistoryRecord): Promise<void> {
   await ensureDataFile();
 
   const records = await readHistory();
 
-  // 添加到数组开头（最新记录在前）
-  records.unshift(record);
+  // 如果已存在同 ID 记录，替换之
+  const existingIdx = records.findIndex((r) => r.id === record.id);
+  if (existingIdx >= 0) {
+    records[existingIdx] = record;
+  } else {
+    // 新记录添加到数组开头
+    records.unshift(record);
+  }
 
   // 超过上限时删除最旧的记录
   while (records.length > MAX_RECORDS) {

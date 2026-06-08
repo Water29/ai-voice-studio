@@ -116,9 +116,8 @@ export default function Home() {
         // 始终保存到 voiceMap（含失败的）
         setVoiceMap(prev => { const m = new Map(prev); m.set(tabIndex, results); return m; });
 
-        // 保存历史（始终保存，含失败信息）
+        // 保存历史（POST upsert，含失败信息）
         try {
-          await fetch(`/api/history/${recordId}`, { method: "DELETE" });
           await fetch("/api/history", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

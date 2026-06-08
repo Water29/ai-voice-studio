@@ -176,7 +176,6 @@ export default function Home() {
       <header className="mb-5 flex items-center justify-between rounded-2xl px-5 py-3.5 text-white shadow-md"
         style={{ background: "linear-gradient(135deg, #9b87d0 0%, #8498c8 35%, #90b0d8 65%, #b090c8 100%)" }}>
         <div><h1 className="text-lg font-bold drop-shadow-sm">🎙️ AI Voice Studio</h1><p className="mt-0.5 text-xs text-white/65">DeepSeek 翻译 · ElevenLabs 配音</p></div>
-        {phase !== "idle" && <button onClick={handleReset} className="rounded-xl bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 transition-all">+ 新建</button>}
       </header>
 
       <div className="grid gap-5 lg:grid-cols-5">

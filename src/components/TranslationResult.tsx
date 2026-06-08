@@ -42,7 +42,6 @@ export function TranslationResult({
       setTimeout(() => setCopied(false), 2000);
       onCopy?.();
     } catch {
-      // fallback: 通过 textarea 复制
       const textarea = document.createElement("textarea");
       textarea.value = translatedText;
       document.body.appendChild(textarea);
@@ -54,25 +53,20 @@ export function TranslationResult({
     }
   };
 
-  const handleSaveEdit = () => {
-    // 编辑后的文本通过回调传出
-    setIsEditing(false);
-  };
-
   if (!translatedText) {
     return null;
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4">
+    <div className="space-y-3 rounded-xl border border-gray-100 bg-purple-50/30 p-4">
       {/* 头部 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+          <span className="rounded-md bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
             {STYLE_LABELS[style]}
           </span>
-          <span className="text-xs text-zinc-500">
-            预估费用 {formatCost(costUsd)}
+          <span className="text-xs text-gray-400">
+            费用 {formatCost(costUsd)}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -80,7 +74,7 @@ export function TranslationResult({
             variant="ghost"
             size="sm"
             onClick={() => setIsEditing(!isEditing)}
-            className="h-7 text-xs text-zinc-400 hover:text-zinc-200"
+            className="h-7 text-xs text-gray-400 hover:text-purple-600 hover:bg-purple-50"
           >
             {isEditing ? "预览" : "编辑"}
           </Button>
@@ -88,7 +82,7 @@ export function TranslationResult({
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="h-7 text-xs text-zinc-400 hover:text-zinc-200"
+            className="h-7 text-xs text-gray-400 hover:text-purple-600 hover:bg-purple-50"
           >
             {copied ? "已复制 ✓" : "复制"}
           </Button>
@@ -102,28 +96,28 @@ export function TranslationResult({
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             rows={4}
-            className="w-full rounded-lg border border-zinc-600 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 resize-none"
           />
           <Button
             size="sm"
-            onClick={handleSaveEdit}
-            className="text-xs rounded-lg"
+            onClick={() => setIsEditing(false)}
+            className="text-xs rounded-lg bg-purple-500 hover:bg-purple-600 text-white"
           >
             保存
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
           {translatedText}
         </p>
       )}
 
-      {/* 重新生成（可选） */}
+      {/* 重新生成 */}
       {onRegenerate && (
-        <div className="pt-1 border-t border-zinc-700/30">
+        <div className="pt-1 border-t border-purple-100">
           <button
             onClick={onRegenerate}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="text-xs text-gray-400 hover:text-purple-500 transition-colors"
           >
             🔄 重新翻译
           </button>

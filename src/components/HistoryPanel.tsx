@@ -16,9 +16,6 @@ interface HistoryPanelProps {
   onSearch: (query: string) => void;
 }
 
-/**
- * 按日期分组
- */
 function groupByDate(
   records: HistoryRecord[]
 ): { label: string; items: HistoryRecord[] }[] {
@@ -27,16 +24,15 @@ function groupByDate(
   const yesterday = new Date(today.getTime() - 86400000);
   const lastWeek = new Date(today.getTime() - 7 * 86400000);
 
-  const groups: { label: string; items: HistoryRecord[] }[] = [
-    { label: "今天", items: [] },
-    { label: "昨天", items: [] },
-    { label: "最近 7 天", items: [] },
-    { label: "更早", items: [] },
+  const groups = [
+    { label: "今天", items: [] as HistoryRecord[] },
+    { label: "昨天", items: [] as HistoryRecord[] },
+    { label: "最近 7 天", items: [] as HistoryRecord[] },
+    { label: "更早", items: [] as HistoryRecord[] },
   ];
 
   for (const record of records) {
     const recordDate = new Date(record.createdAt);
-
     if (recordDate >= today) {
       groups[0].items.push(record);
     } else if (recordDate >= yesterday) {
@@ -51,9 +47,6 @@ function groupByDate(
   return groups.filter((g) => g.items.length > 0);
 }
 
-/**
- * 格式化时间为简短显示
- */
 function formatTime(isoString: string): string {
   const date = new Date(isoString);
   const hours = date.getHours().toString().padStart(2, "0");
@@ -84,84 +77,81 @@ export function HistoryPanel({
 
   return (
     <div className="space-y-4">
-      {/* 标题 + 搜索 */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-zinc-300">
-          历史记录
-        </h3>
+      {/* 标题 */}
+      <h3 className="text-sm font-semibold text-gray-600">
+        📜 历史记录
+      </h3>
 
-        {/* 搜索栏 */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="搜索原文或翻译..."
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSearch}
-            className="h-8 text-xs rounded-lg border-zinc-700 text-zinc-400 hover:text-zinc-200"
-          >
-            搜索
-          </Button>
-        </div>
+      {/* 搜索栏 */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="搜索..."
+          className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 placeholder:text-gray-300 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSearch}
+          className="h-8 text-xs rounded-lg border-gray-200 text-gray-400 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+        >
+          搜索
+        </Button>
       </div>
 
       {/* 列表 */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-6 text-center text-xs text-zinc-500">
+        <p className="py-6 text-center text-xs text-gray-300">
           {searchQuery
             ? "未找到匹配记录"
-            : "暂无历史记录，生成第一条吧 ✨"}
+            : "暂无记录，生成第一条吧 ✨"}
         </p>
       ) : (
         <div className="space-y-4">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="mb-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="mb-2 text-xs font-medium text-gray-300 uppercase tracking-wider">
                 {group.label}
               </p>
               <div className="space-y-1">
                 {group.items.map((record) => (
                   <div
                     key={record.id}
-                    className="group flex items-center justify-between rounded-lg border border-zinc-700/30 bg-zinc-800/20 px-3 py-2.5 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                    className="group flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2.5 hover:border-purple-200 hover:bg-purple-50/50 transition-colors cursor-pointer"
                     onClick={() => onSelect(record)}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-zinc-300 truncate">
+                      <p className="text-xs text-gray-700 truncate">
                         {record.translatedText}
                       </p>
-                      <p className="mt-0.5 text-xs text-zinc-500 truncate">
+                      <p className="mt-0.5 text-xs text-gray-400 truncate">
                         {record.sourceText}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         {record.voiceName && (
-                          <span className="text-[10px] text-zinc-600">
+                          <span className="text-[10px] text-gray-400">
                             🎤 {record.voiceName}
                           </span>
                         )}
-                        <span className="text-[10px] text-zinc-600">
+                        <span className="text-[10px] text-gray-300">
                           {formatTime(record.createdAt)}
                         </span>
                       </div>
                     </div>
 
-                    {/* 删除按钮 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete(record.id);
                       }}
-                      className="ml-2 shrink-0 rounded p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                      className="ml-2 shrink-0 rounded p-1 text-gray-300 hover:text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                       title="删除"
                     >
                       <svg
@@ -183,10 +173,9 @@ export function HistoryPanel({
         </div>
       )}
 
-      {/* 记录数 */}
       {records.length > 0 && (
-        <p className="text-center text-[10px] text-zinc-600">
-          共 {records.length} 条记录（最多保留 100 条）
+        <p className="text-center text-[10px] text-gray-300">
+          共 {records.length} 条记录
         </p>
       )}
     </div>

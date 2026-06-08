@@ -58,10 +58,10 @@ export function ScriptInput({
     <div className="space-y-4">
       {/* 标题区域 */}
       <div>
-        <h2 className="text-lg font-semibold text-zinc-100">
+        <h2 className="text-base font-semibold text-gray-700">
           中文口播文案
         </h2>
-        <p className="mt-1 text-sm text-zinc-400">
+        <p className="mt-1 text-sm text-gray-400">
           输入你的中文营销文案，AI 将翻译成自然流畅的英文口播
         </p>
       </div>
@@ -72,10 +72,10 @@ export function ScriptInput({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="例如：这款机器人能帮你自动修剪草坪，省时省力，你值得拥有！"
-          rows={5}
+          rows={4}
           maxLength={maxChars}
           disabled={disabled}
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder:text-gray-300 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors"
         />
         {/* 字符计数 */}
         <div className="absolute bottom-3 right-3">
@@ -83,7 +83,7 @@ export function ScriptInput({
             className={`text-xs ${
               charCount > maxChars * 0.9
                 ? "text-red-400"
-                : "text-zinc-500"
+                : "text-gray-300"
             }`}
           >
             {charCount}/{maxChars}
@@ -93,7 +93,7 @@ export function ScriptInput({
 
       {/* 风格选择 */}
       <div>
-        <p className="mb-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        <p className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
           翻译风格
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -102,14 +102,14 @@ export function ScriptInput({
               key={s.value}
               onClick={() => setStyle(s.value)}
               disabled={disabled}
-              className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-all ${
+              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
                 style === s.value
-                  ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                  : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                  ? "border-purple-300 bg-purple-50 text-purple-700 shadow-sm"
+                  : "border-gray-100 bg-white text-gray-500 hover:border-purple-200 hover:bg-purple-50/50 hover:text-gray-600"
               } disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <div className="font-medium">{s.label}</div>
-              <div className="mt-0.5 text-xs opacity-70">{s.desc}</div>
+              <div className="mt-0.5 text-xs opacity-60">{s.desc}</div>
             </button>
           ))}
         </div>
@@ -119,16 +119,16 @@ export function ScriptInput({
       <Button
         onClick={handleGenerate}
         disabled={!text.trim() || isGenerating || disabled}
-        className="w-full h-11 text-sm font-medium rounded-xl"
+        className="w-full h-11 text-sm font-medium rounded-xl bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-40 transition-colors"
         size="lg"
       >
         {isGenerating ? (
           <span className="flex items-center gap-2">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-100 border-t-transparent" />
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
             翻译中...
           </span>
         ) : (
-          "生成英文口播"
+          "✨ 生成英文口播"
         )}
       </Button>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// 主页面 — AI Voice Studio
+// 主页面 — AI Voice Studio（浅紫色主题）
 // ============================================
 
 import { useState, useCallback, useEffect } from "react";
@@ -22,16 +22,10 @@ import type {
 type WorkflowState = "idle" | "translating" | "generating" | "done";
 
 export default function Home() {
-  // ============================================
-  // Hooks
-  // ============================================
   const translation = useTranslation();
   const voice = useVoice();
   const historyStore = useHistory();
 
-  // ============================================
-  // Local State
-  // ============================================
   const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
   const [sourceText, setSourceText] = useState("");
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
@@ -39,22 +33,18 @@ export default function Home() {
     useState<TranslateResponse | null>(null);
   const [ttsResult, setTTSResult] = useState<TTSResponse | null>(null);
 
-  // 加载音色列表
   useEffect(() => {
     voice.loadVoices();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ============================================
-  // Handlers
-  // ============================================
-
-  /** 核心流程：输入中文 → 翻译 → TTS → 保存历史 */
   const handleGenerate = useCallback(
     async (text: string, style: TranslationStyle) => {
       setSourceText(text);
       setWorkflowState("translating");
+      // 先清空旧结果，避免旧的 VoicePlayer 在新音频加载时闪烁
+      setTranslationResult(null);
+      setTTSResult(null);
 
-      // Step 1: 翻译
       const translateResult = await translation.translate(text, style);
       if (!translateResult) {
         setWorkflowState("idle");
@@ -62,11 +52,9 @@ export default function Home() {
       }
       setTranslationResult(translateResult);
 
-      // Step 2: TTS
       setWorkflowState("generating");
       const selectedVoiceId =
-        voice.selectedVoice?.voiceId ??
-        "pNInz6obpgDQGcFmaJgB"; // 默认 Adam
+        voice.selectedVoice?.voiceId ?? "pNInz6obpgDQGcFmaJgB";
 
       const ttsResult = await voice.generate(
         translateResult.translatedText,
@@ -78,7 +66,7 @@ export default function Home() {
       }
       setWorkflowState("done");
 
-      // Step 3: 保存到历史（通过 API Route）
+      // 保存历史
       const recordId = `rec_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 8)}`;
@@ -111,7 +99,6 @@ export default function Home() {
     [translation, voice, historyStore]
   );
 
-  /** 从历史记录加载 */
   const handleSelectHistory = useCallback(
     (record: HistoryRecord) => {
       setSourceText(record.sourceText);
@@ -137,7 +124,6 @@ export default function Home() {
     [translation, voice]
   );
 
-  /** 删��历史记录 */
   const handleDeleteHistory = useCallback(
     async (id: string) => {
       const success = await historyStore.deleteItem(id);
@@ -149,7 +135,6 @@ export default function Home() {
     [historyStore, currentRecordId]
   );
 
-  /** 搜索历史 */
   const handleSearchHistory = useCallback(
     (query: string) => {
       historyStore.loadHistory(query);
@@ -157,7 +142,6 @@ export default function Home() {
     [historyStore]
   );
 
-  /** 重置 */
   const handleReset = useCallback(() => {
     setSourceText("");
     setTranslationResult(null);
@@ -168,7 +152,6 @@ export default function Home() {
     voice.reset();
   }, [translation, voice]);
 
-  /** 下载音频 */
   const handleDownload = useCallback(() => {
     if (ttsResult?.audioUrl) {
       const link = document.createElement("a");
@@ -183,22 +166,25 @@ export default function Home() {
   // ============================================
   // Render
   // ============================================
+  const isProcessing =
+    workflowState === "translating" || workflowState === "generating";
+
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       {/* ======== Header ======== */}
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-            AI Voice Studio
+          <h1 className="text-xl font-bold tracking-tight text-gray-800">
+            🎙️ AI Voice Studio
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            AI 英文口播生成 · DeepSeek 翻译 · ElevenLabs 配音
+          <p className="mt-0.5 text-sm text-gray-400">
+            DeepSeek 翻译 · ElevenLabs 配音 · AI 英文口播生成
           </p>
         </div>
         {workflowState !== "idle" && (
           <button
             onClick={handleReset}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+            className="rounded-xl px-4 py-1.5 text-sm text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
           >
             + 新建
           </button>
@@ -207,75 +193,103 @@ export default function Home() {
 
       {/* ======== Main Content ======== */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* ---- Left: Workflow (2 cols on desktop) ---- */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Step 1: Input */}
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+        {/* ---- Left: 工作流区 ---- */}
+        <div className="space-y-4 lg:col-span-2">
+          {/* Step 1: 输入区 — 始终固定 */}
+          <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
             <ScriptInput
               onGenerate={handleGenerate}
-              isGenerating={
-                workflowState === "translating" ||
-                workflowState === "generating"
-              }
+              isGenerating={isProcessing}
             />
           </section>
 
-          {/* Step 2: Translation Result */}
-          {translationResult && (
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-              <h2 className="mb-3 text-sm font-semibold text-zinc-400">
-                英文翻译
-              </h2>
-              <TranslationResult
-                translatedText={translationResult.translatedText}
-                style={translationResult.style}
-                costUsd={translationResult.costUsd}
-                onRegenerate={() =>
-                  handleGenerate(sourceText, translationResult.style)
-                }
-              />
-            </section>
-          )}
+          {/* Step 2 & 3: 结果区 — 固定高度容器，防止布局抖动 */}
+          <div className="min-h-[200px] space-y-4">
+            {/* Loading: 翻译中 */}
+            {workflowState === "translating" && (
+              <section className="rounded-2xl border border-purple-100 bg-white shadow-sm p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
+                  <span className="text-sm text-gray-500">
+                    正在用 DeepSeek 翻译...
+                  </span>
+                </div>
+              </section>
+            )}
 
-          {/* Step 3: Voice Player */}
-          {ttsResult && (
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-              <h2 className="mb-3 text-sm font-semibold text-zinc-400">
-                语音预览
-              </h2>
-              <VoicePlayer
-                audioUrl={ttsResult.audioUrl}
-                voiceName={ttsResult.voiceName}
-                durationMs={ttsResult.durationMs}
-                onDownload={handleDownload}
-              />
-            </section>
-          )}
+            {/* Loading: 语音生成中 */}
+            {workflowState === "generating" && (
+              <>
+                {/* 翻译结果已经可以展示 */}
+                {translationResult && (
+                  <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <h2 className="mb-3 text-sm font-semibold text-gray-400">
+                      英文翻译
+                    </h2>
+                    <TranslationResult
+                      translatedText={translationResult.translatedText}
+                      style={translationResult.style}
+                      costUsd={translationResult.costUsd}
+                    />
+                  </section>
+                )}
+                <section className="rounded-2xl border border-purple-100 bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
+                    <span className="text-sm text-gray-500">
+                      正在用 ElevenLabs 生成语音...
+                    </span>
+                  </div>
+                </section>
+              </>
+            )}
 
-          {/* Loading state: translating */}
-          {workflowState === "translating" && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
-              <p className="mt-4 text-sm text-zinc-500">
-                正在用 DeepSeek 翻译...
-              </p>
-            </div>
-          )}
+            {/* Done: 翻译结果 */}
+            {translationResult && workflowState !== "generating" && (
+              <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                <h2 className="mb-3 text-sm font-semibold text-gray-400">
+                  英文翻译
+                </h2>
+                <TranslationResult
+                  translatedText={translationResult.translatedText}
+                  style={translationResult.style}
+                  costUsd={translationResult.costUsd}
+                  onRegenerate={() =>
+                    handleGenerate(sourceText, translationResult.style)
+                  }
+                />
+              </section>
+            )}
 
-          {/* Loading state: generating TTS */}
-          {workflowState === "generating" && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-emerald-500" />
-              <p className="mt-4 text-sm text-zinc-500">
-                正在用 ElevenLabs 生成语音...
-              </p>
-            </div>
-          )}
+            {/* Done: 语音预览 */}
+            {ttsResult && workflowState === "done" && (
+              <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                <h2 className="mb-3 text-sm font-semibold text-gray-400">
+                  语音预览
+                </h2>
+                <VoicePlayer
+                  audioUrl={ttsResult.audioUrl}
+                  voiceName={ttsResult.voiceName}
+                  durationMs={ttsResult.durationMs}
+                  onDownload={handleDownload}
+                />
+              </section>
+            )}
+
+            {/* Idle 占位：防止页面在初始状态时过于空洞 */}
+            {workflowState === "idle" && (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-10 text-center">
+                <p className="text-sm text-gray-400">
+                  输入中文文案，选择翻译风格，开始生成 ✨
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ---- Right: History Panel ---- */}
+        {/* ---- Right: 历史记录 ---- */}
         <aside className="lg:col-span-1">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 lg:sticky lg:top-6">
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 lg:sticky lg:top-6">
             <HistoryPanel
               records={historyStore.records}
               isLoading={historyStore.isLoading}
@@ -288,14 +302,14 @@ export default function Home() {
       </div>
 
       {/* ======== Footer ======== */}
-      <footer className="mt-12 pb-6 text-center">
-        <p className="text-xs text-zinc-600">
+      <footer className="mt-10 pb-6 text-center">
+        <p className="text-xs text-gray-400">
           Powered by{" "}
           <a
             href="https://platform.deepseek.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2"
+            className="text-purple-500 hover:text-purple-600 transition-colors underline underline-offset-2"
           >
             DeepSeek
           </a>{" "}
@@ -304,7 +318,7 @@ export default function Home() {
             href="https://elevenlabs.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2"
+            className="text-purple-500 hover:text-purple-600 transition-colors underline underline-offset-2"
           >
             ElevenLabs
           </a>

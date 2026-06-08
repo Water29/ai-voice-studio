@@ -31,9 +31,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="dark">
+    <html lang="zh-CN" className="light">
       <body
-        className={`${inter.className} min-h-screen bg-zinc-950 text-zinc-100 antialiased`}
+        className={`${inter.className} min-h-screen bg-gradient-to-b from-purple-50/30 via-white to-white text-gray-800 antialiased`}
       >
         {children}
       </body>

@@ -34,6 +34,7 @@ export async function POST(request: Request) {
         if (existing) {
           await addRecord({
             ...existing,
+            voiceForText: body.text, // 记录哪个翻译文本用于生成语音
             voiceResults: results.map((r: any) => ({
               voiceName: r.voiceName, audioUrl: r.audioUrl,
               durationMs: r.durationMs, _error: r._error || undefined,

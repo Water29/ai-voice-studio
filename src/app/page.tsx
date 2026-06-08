@@ -279,11 +279,24 @@ export default function Home() {
                 setSourceText(r.sourceText || "");
                 const ts = (r.translations || [{ text: r.translatedText, style: r.translationStyle, label: r.translationStyle }])
                   .map((t: any) => ({ translatedText: t.text, style: t.style, label: t.label, description: "", tokensUsed: 0, costUsd: 0 }));
-                setTranslations(ts); setActiveTransTab(0); setPhase("translated");
-                if (r.voiceResults?.length) {
+                setTranslations(ts); setPhase("translated");
+                // 按翻译文本匹配语音到正确的Tab
+                if (r.voiceResults?.length && r.voiceResults.some((v: any) => v.audioUrl)) {
                   const m = new Map<number, VoiceItem[]>();
-                  m.set(0, r.voiceResults.map((v: any) => ({ voiceId: "", voiceName: v.voiceName, audioUrl: v.audioUrl, durationMs: v.durationMs })));
+                  const voiceText = r.voiceForText || r.translations?.[0]?.text || r.translatedText || "";
+                  // 找到匹配的翻译Tab索引
+                  let matchIdx = 0;
+                  if (voiceText) {
+                    const found = ts.findIndex((t: any) => t.translatedText.trim() === voiceText.trim());
+                    if (found >= 0) matchIdx = found;
+                  }
+                  m.set(matchIdx, r.voiceResults.map((v: any) => ({
+                    voiceId: "", voiceName: v.voiceName, audioUrl: v.audioUrl, durationMs: v.durationMs
+                  })));
                   setVoiceMap(m);
+                  setActiveTransTab(matchIdx); // 自动切换到有语音的Tab
+                } else {
+                  setActiveTransTab(0);
                 }
               }}
               onDelete={(id: string) => historyStore.deleteItem(id)}
